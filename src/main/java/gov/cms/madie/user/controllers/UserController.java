@@ -1,8 +1,8 @@
 package gov.cms.madie.user.controllers;
 
 import gov.cms.madie.models.access.MadieUser;
-import gov.cms.madie.user.dto.DetailsRequestDto;
-import gov.cms.madie.user.dto.UserDetailsDto;
+import gov.cms.madie.models.dto.DetailsRequestDto;
+import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.services.UserService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

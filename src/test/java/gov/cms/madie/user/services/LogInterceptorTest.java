@@ -4,28 +4,27 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.slf4j.Logger;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class LogInterceptorTest {
   @Mock private HttpServletRequest request;
   @Mock private HttpServletResponse response;
-  @Mock private Logger logger;
   private LogInterceptor interceptor;
 
   @BeforeEach
   void setUp() {
-    MockitoAnnotations.openMocks(this);
     interceptor = new LogInterceptor();
   }
 
   @Test
-  void afterCompletion_logsInfo() {
+  void afterCompletionLogsInfo() {
     // given
     when(request.getUserPrincipal()).thenReturn(() -> "testUser");
     when(request.getMethod()).thenReturn("GET");
@@ -39,7 +38,7 @@ class LogInterceptorTest {
   }
 
   @Test
-  void afterCompletion_logsInfoWithNoPrincipal() {
+  void afterCompletionLogsInfoWithNoPrincipal() {
     // given
     when(request.getUserPrincipal()).thenReturn(null);
     when(request.getMethod()).thenReturn("POST");
