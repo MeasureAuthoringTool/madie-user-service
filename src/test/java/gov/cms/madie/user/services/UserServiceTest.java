@@ -1,14 +1,19 @@
 package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.MadieUser;
-import gov.cms.madie.user.dto.UserDetailsDto;
+import gov.cms.madie.models.dto.UserDetailsDto;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
+@ExtendWith(MockitoExtension.class)
 class UserServiceTest {
-  private final UserService userService = new UserService();
+
+  @InjectMocks private UserService userService;
 
   @Test
   void getUserByHarpIdReturnsMadieUser() {
