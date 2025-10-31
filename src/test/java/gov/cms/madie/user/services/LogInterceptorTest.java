@@ -30,8 +30,9 @@ class LogInterceptorTest {
     when(request.getMethod()).thenReturn("GET");
     when(request.getRequestURI()).thenReturn("/users/123");
     when(response.getStatus()).thenReturn(200);
+    Object handler = mock(Object.class);
     // when
-    interceptor.afterCompletion(request, response, null, null);
+    interceptor.afterCompletion(request, response, handler, null);
     // then
     // No exception thrown, log is called (cannot assert log output without a log appender)
     assertThat(true, is(true));
@@ -44,8 +45,9 @@ class LogInterceptorTest {
     when(request.getMethod()).thenReturn("POST");
     when(request.getRequestURI()).thenReturn("/users");
     when(response.getStatus()).thenReturn(201);
+    Object handler = mock(Object.class);
     // when
-    interceptor.afterCompletion(request, response, null, null);
+    interceptor.afterCompletion(request, response, handler, null);
     // then
     assertThat(true, is(true));
   }

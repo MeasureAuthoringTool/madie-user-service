@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
+import java.util.Objects;
+
 import static org.mockito.Mockito.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -33,7 +35,8 @@ class MongoIndexConfigTest {
     verify(mongoCollection, times(1)).createIndex(keyCaptor.capture(), optionsCaptor.capture());
     assertThat(keyCaptor.getValue().get("harpId"), is(1));
     assertThat(optionsCaptor.getValue().isUnique(), is(true));
-    assertThat(optionsCaptor.getValue().getCollation().getLocale(), is("en"));
+    assertThat(
+        Objects.requireNonNull(optionsCaptor.getValue().getCollation()).getLocale(), is("en"));
     assertThat(
         optionsCaptor.getValue().getCollation().getStrength(), is(CollationStrength.SECONDARY));
   }
