@@ -1,14 +1,15 @@
 package gov.cms.madie.user.controllers;
 
 import gov.cms.madie.models.access.MadieUser;
-import gov.cms.madie.user.dto.DetailsRequestDto;
-import gov.cms.madie.user.dto.UserDetailsDto;
+import gov.cms.madie.models.dto.DetailsRequestDto;
+import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.services.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
 import java.security.Principal;
@@ -19,6 +20,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class UserControllerTest {
   @Mock private UserService userService;
   @Mock private Principal principal;
@@ -26,66 +28,65 @@ class UserControllerTest {
 
   @BeforeEach
   void setUp() {
-    MockitoAnnotations.openMocks(this);
     when(principal.getName()).thenReturn("testUser");
   }
 
   @Test
-  void getUser_returnsMadieUser() {
+  void getUserReturnsMadieUser() {
     // given
     MadieUser user = MadieUser.builder().harpId("123").build();
     when(userService.getUserByHarpId("123")).thenReturn(user);
     // when
     ResponseEntity<MadieUser> response = userController.getUser("123", principal);
     // then
-    assertThat(response.getStatusCodeValue(), is(200));
+    assertThat(response.getStatusCode().value(), is(200));
     assertThat(response.getBody(), is(user));
   }
 
   @Test
-  void updateUser_returnsUpdatedMadieUser() {
+  void updateUserReturnsUpdatedMadieUser() {
     // given
     MadieUser user = MadieUser.builder().harpId("123").build();
     when(userService.refreshUserDetailsAndLogin("123")).thenReturn(user);
     // when
     ResponseEntity<MadieUser> response = userController.updateUser("123", principal);
     // then
-    assertThat(response.getStatusCodeValue(), is(200));
+    assertThat(response.getStatusCode().value(), is(200));
     assertThat(response.getBody(), is(user));
   }
 
   @Test
-  void getUserActivityReport_returnsReport() {
+  void getUserActivityReportReturnsReport() {
     // when
     ResponseEntity<Object> response = userController.getUserActivityReport(principal);
     // then
-    assertThat(response.getStatusCodeValue(), is(200));
+    assertThat(response.getStatusCode().value(), is(200));
     assertThat(response.getBody(), is("User report coming soon"));
   }
 
   @Test
-  void refreshAllUsers_returnsAccepted() {
+  void refreshAllUsersReturnsAccepted() {
     // when
     ResponseEntity<Object> response = userController.refreshAllUsers(principal);
     // then
-    assertThat(response.getStatusCodeValue(), is(202));
+    assertThat(response.getStatusCode().value(), is(202));
     assertThat(response.getBody(), is("User refresh job accepted"));
   }
 
   @Test
-  void getUserDetails_returnsUserDetailsDto() {
+  void getUserDetailsReturnsUserDetailsDto() {
     // given
     UserDetailsDto details = UserDetailsDto.builder().harpId("123").build();
     when(userService.getUserDetailsByHarpId("123")).thenReturn(details);
     // when
     ResponseEntity<UserDetailsDto> response = userController.getUserDetails("123", principal);
     // then
-    assertThat(response.getStatusCodeValue(), is(200));
+    assertThat(response.getStatusCode().value(), is(200));
     assertThat(response.getBody(), is(details));
   }
 
   @Test
-  void getBulkUserDetails_returnsMapOfUserDetailsDto() {
+  void getBulkUserDetailsReturnsMapOfUserDetailsDto() {
     // given
     DetailsRequestDto request = new DetailsRequestDto();
     request.setHarpIds(Arrays.asList("123", "456"));
@@ -97,7 +98,7 @@ class UserControllerTest {
     ResponseEntity<Map<String, UserDetailsDto>> response =
         userController.getBulkUserDetails(request, principal);
     // then
-    assertThat(response.getStatusCodeValue(), is(200));
+    assertThat(response.getStatusCode().value(), is(200));
     assertThat(response.getBody(), allOf(hasEntry("123", details1), hasEntry("456", details2)));
   }
 }

@@ -1,7 +1,7 @@
 package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.MadieUser;
-import gov.cms.madie.user.dto.UserDetailsDto;
+import gov.cms.madie.models.dto.UserDetailsDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
