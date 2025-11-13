@@ -28,7 +28,7 @@ logging:
     console: "%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] %mdc %-5level %logger{36}.%M - %msg%n"
 
 harp:
-  base-url: https://test.harp.cms.gov
+  base-url: ${HARP_BASE_URL:https://test.harp.cms.gov}
   program-name: MADiE
   ado-name: MADiE
   token:
