@@ -47,7 +47,7 @@ class UserControllerTest {
   void updateUserReturnsUpdatedMadieUser() {
     // given
     MadieUser user = MadieUser.builder().harpId("123").build();
-    when(userService.refreshUserDetailsAndLogin("123")).thenReturn(user);
+    when(userService.refreshUserRolesAndLogin("123")).thenReturn(user);
     // when
     ResponseEntity<MadieUser> response = userController.updateUser("123", principal);
     // then

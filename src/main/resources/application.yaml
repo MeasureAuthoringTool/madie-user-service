@@ -27,6 +27,22 @@ logging:
   pattern:
     console: "%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] %mdc %-5level %logger{36}.%M - %msg%n"
 
+harp:
+  base-url: ${HARP_BASE_URL:https://test.harp.cms.gov}
+  program-name: MADiE
+  ado-name: MADiE
+  token:
+    uri: /harpAuthzApi/token
+    scope: userRoleCreationApi userFindApi
+    client-id: ${HARP_CLIENT_ID:}
+    secret: ${HARP_SECRET:}
+  user-roles:
+    uri: /userRoleCreationApi
+  user-find:
+    uri: /userFindApi
+
+
+
 okta:
   oauth2:
     issuer: ${OKTA_ISSUER:https://dev-madie.okta.com/oauth2/default}

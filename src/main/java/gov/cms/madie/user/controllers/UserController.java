@@ -30,7 +30,7 @@ public class UserController {
   @PutMapping("/{harpId}")
   public ResponseEntity<MadieUser> updateUser(@PathVariable String harpId, Principal principal) {
     log.info("User [{}] - Updating user with HARP ID: {}", principal.getName(), harpId);
-    MadieUser user = userService.refreshUserDetailsAndLogin(harpId);
+    MadieUser user = userService.refreshUserRolesAndLogin(harpId);
     return ResponseEntity.ok(user);
   }
 
