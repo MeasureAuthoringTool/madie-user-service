@@ -1,6 +1,9 @@
 package gov.cms.madie.user.config;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +23,9 @@ public class HarpConfig {
   private UserRoles userRoles;
   private UserFind userFind;
 
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
   @Data
   public static class Token {
     private String uri;
@@ -28,11 +34,17 @@ public class HarpConfig {
     private String secret;
   }
 
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
   @Data
   public static class UserRoles {
     private String uri;
   }
 
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
   @Data
   public static class UserFind {
     private String uri;
