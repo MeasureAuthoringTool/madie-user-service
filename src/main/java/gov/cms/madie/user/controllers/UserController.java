@@ -37,6 +37,9 @@ public class UserController {
   @GetMapping("/activity")
   public ResponseEntity<Object> getUserActivityReport(Principal principal) {
     log.info("User [{}] - Generating user activity report", principal.getName());
+    // TODO: implement activity report. Add support for optional days parameter
+    // Generate user activity report based on days, based on more recent of lastLoginAt or
+    // accessStartAt
     return ResponseEntity.ok("User report coming soon");
   }
 
