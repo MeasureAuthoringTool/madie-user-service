@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -88,5 +89,71 @@ class UserServiceTest {
     UserDetailsDto details = userService.getUserDetailsByHarpId(harpId);
     // then
     assertThat(details.getHarpId(), is(harpId));
+  }
+
+  @Test
+  void getMostRecentStartDateReturnsNullForNullResponse() {
+    assertThat(userService.getMostRecentStartDate(null), is(nullValue()));
+  }
+
+  @Test
+  void getMostRecentStartDateReturnsNullForEmptyRoles() {
+    UserRolesResponse response = UserRolesResponse.builder().userRoles(List.of()).build();
+    assertThat(userService.getMostRecentStartDate(response), is(nullValue()));
+  }
+
+  @Test
+  void getMostRecentStartDateReturnsNullForNullStartDates() {
+    UserRolesResponse response =
+        UserRolesResponse.builder()
+            .userRoles(List.of(UserRole.builder().startDate(null).build()))
+            .build();
+    assertThat(userService.getMostRecentStartDate(response), is(nullValue()));
+  }
+
+  @Test
+  void getMostRecentStartDateReturnsMostRecentInstant() {
+    String date1 = "2023-01-01 10:00:00";
+    String date2 = "2024-05-10 15:30:00";
+    UserRolesResponse response =
+        UserRolesResponse.builder()
+            .userRoles(
+                List.of(
+                    UserRole.builder().startDate(date1).build(),
+                    UserRole.builder().startDate(date2).build()))
+            .build();
+    Instant result = userService.getMostRecentStartDate(response);
+    Instant expected =
+        java.time.LocalDateTime.parse(
+                date2, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            .atZone(java.time.ZoneId.systemDefault())
+            .toInstant();
+    assertThat(result, is(expected));
+  }
+
+  @Test
+  void getMostRecentStartDateIgnoresInvalidDates() {
+    String validDate = "2022-12-31 23:59:59";
+    String invalidDate = "not-a-date";
+    UserRolesResponse response =
+        UserRolesResponse.builder()
+            .userRoles(
+                List.of(
+                    UserRole.builder().startDate(invalidDate).build(),
+                    UserRole.builder().startDate(validDate).build()))
+            .build();
+    Instant result = userService.getMostRecentStartDate(response);
+    Instant expected =
+        java.time.LocalDateTime.parse(
+                validDate, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            .atZone(java.time.ZoneId.systemDefault())
+            .toInstant();
+    assertThat(result, is(expected));
+  }
+
+  @Test
+  void getMostRecentStartDateReturnsNullForNullUserRolesList() {
+    UserRolesResponse response = UserRolesResponse.builder().userRoles(null).build();
+    assertThat(userService.getMostRecentStartDate(response), is(nullValue()));
   }
 }

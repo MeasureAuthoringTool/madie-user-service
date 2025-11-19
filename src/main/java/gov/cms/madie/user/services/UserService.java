@@ -13,6 +13,8 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -69,7 +71,7 @@ public class UserService {
    * @param userRolesResponse the response containing user roles
    * @return the most recent startDate, or null if no roles
    */
-  public static java.time.Instant getMostRecentStartDate(UserRolesResponse userRolesResponse) {
+  public Instant getMostRecentStartDate(UserRolesResponse userRolesResponse) {
     if (userRolesResponse == null
         || userRolesResponse.getUserRoles() == null
         || userRolesResponse.getUserRoles().isEmpty()) {
