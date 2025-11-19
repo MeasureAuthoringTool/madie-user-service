@@ -37,7 +37,7 @@ class UserSyncSchedulerTest {
   @Mock private MadieUserRepository madieUserRepository;
   @Mock private UserService userService;
 
-  @InjectMocks private UserSyncScheduler userSyncScheduler;
+  @InjectMocks private UpdateUserJobScheduler userSyncScheduler;
 
   @Test
   void testSyncAllUsersFromHarp() {
@@ -66,7 +66,7 @@ class UserSyncSchedulerTest {
               return harpIds.contains("H3") ? secondBatchResult : firstBatchResult;
             });
 
-    SyncJobResultsDto actualResults = userSyncScheduler.syncAllUsersFromHarp();
+    SyncJobResultsDto actualResults = userSyncScheduler.triggerUpdateUserJobManually();
 
     ArgumentCaptor<List<String>> harpIdsCaptor = ArgumentCaptor.forClass(List.class);
     verify(userService, times(2)).updateUsersFromHarp(harpIdsCaptor.capture());
@@ -83,7 +83,7 @@ class UserSyncSchedulerTest {
     Page<MadieUser> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 50), 0);
     when(madieUserRepository.findAllHarpIds(any(Pageable.class))).thenReturn(emptyPage);
 
-    SyncJobResultsDto actualResults = userSyncScheduler.syncAllUsersFromHarp();
+    SyncJobResultsDto actualResults = userSyncScheduler.triggerUpdateUserJobManually();
 
     assertThat(actualResults.getUpdatedHarpIds(), empty());
     assertThat(actualResults.getFailedHarpIds(), empty());
@@ -92,14 +92,15 @@ class UserSyncSchedulerTest {
 
   @Test
   void triggerManualSyncDelegatesToScheduledSync() {
-    UserSyncScheduler schedulerSpy = spy(new UserSyncScheduler(madieUserRepository, userService));
+    UpdateUserJobScheduler schedulerSpy =
+        spy(new UpdateUserJobScheduler(madieUserRepository, userService));
     SyncJobResultsDto expectedResult = SyncJobResultsDto.builder().build();
-    doReturn(expectedResult).when(schedulerSpy).syncAllUsersFromHarp();
+    doReturn(expectedResult).when(schedulerSpy).triggerUpdateUserJobManually();
 
-    SyncJobResultsDto actualResults = schedulerSpy.triggerManualSync();
+    SyncJobResultsDto actualResults = schedulerSpy.triggerUpdateUserJobManually();
 
     assertThat(actualResults, is(expectedResult));
-    verify(schedulerSpy).syncAllUsersFromHarp();
+    verify(schedulerSpy).triggerUpdateUserJobManually();
   }
 
   private MadieUser madieUser(String harpId) {

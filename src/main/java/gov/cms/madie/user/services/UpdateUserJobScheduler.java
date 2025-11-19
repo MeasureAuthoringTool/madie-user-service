@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class UserSyncScheduler {
+public class UpdateUserJobScheduler {
 
   private final MadieUserRepository madieUserRepository;
   private final UserService userService;
@@ -30,7 +30,7 @@ public class UserSyncScheduler {
    * via application.yaml).
    */
   @Scheduled(cron = "${user.sync.cron:0 */5 * * * *}")
-  public SyncJobResultsDto syncAllUsersFromHarp() {
+  public SyncJobResultsDto triggerUpdateUsersJob() {
     log.info("Starting scheduled user sync from HARP at {}", Instant.now());
 
     int pageSize = 50;
@@ -88,9 +88,9 @@ public class UserSyncScheduler {
   }
 
   /** Manual trigger sync job */
-  public SyncJobResultsDto triggerManualSync() {
+  public SyncJobResultsDto triggerUpdateUserJobManually() {
     log.info("Manual user sync triggered...");
-    SyncJobResultsDto syncJobResultsDto = syncAllUsersFromHarp();
+    SyncJobResultsDto syncJobResultsDto = triggerUpdateUsersJob();
     log.info("Manual user sync completed");
     return syncJobResultsDto;
   }

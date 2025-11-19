@@ -3,7 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.user.config.SecurityConfig;
 import gov.cms.madie.user.dto.SyncJobResultsDto;
 import gov.cms.madie.user.services.UserService;
-import gov.cms.madie.user.services.UserSyncScheduler;
+import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -31,7 +31,7 @@ public class UserControllerMvcTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private UserService userService;
-  @MockitoBean private UserSyncScheduler userSyncScheduler;
+  @MockitoBean private UpdateUserJobScheduler updateUserJobScheduler;
 
   @Test
   @WithMockUser(username = "testuser")
@@ -48,7 +48,7 @@ public class UserControllerMvcTest {
             .unchangedHarpIds(unchangedIds)
             .build();
 
-    when(userSyncScheduler.triggerManualSync()).thenReturn(results);
+    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
 
     // When & Then
     mockMvc
@@ -66,7 +66,7 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.unchangedHarpIds[0]", is("user5")))
         .andExpect(jsonPath("$.unchangedHarpIds[1]", is("user6")));
 
-    verify(userSyncScheduler, times(1)).triggerManualSync();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
 
   @Test
@@ -80,7 +80,7 @@ public class UserControllerMvcTest {
             .unchangedHarpIds(new ArrayList<>())
             .build();
 
-    when(userSyncScheduler.triggerManualSync()).thenReturn(emptyResults);
+    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(emptyResults);
 
     // When & Then
     mockMvc
@@ -92,7 +92,7 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.failedHarpIds", hasSize(0)))
         .andExpect(jsonPath("$.unchangedHarpIds", hasSize(0)));
 
-    verify(userSyncScheduler, times(1)).triggerManualSync();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
 
   @Test
@@ -108,7 +108,7 @@ public class UserControllerMvcTest {
             .unchangedHarpIds(new ArrayList<>())
             .build();
 
-    when(userSyncScheduler.triggerManualSync()).thenReturn(results);
+    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
 
     // When & Then
     mockMvc
@@ -120,7 +120,7 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.failedHarpIds", empty()))
         .andExpect(jsonPath("$.unchangedHarpIds", empty()));
 
-    verify(userSyncScheduler, times(1)).triggerManualSync();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
 
   @Test
@@ -136,7 +136,7 @@ public class UserControllerMvcTest {
             .unchangedHarpIds(new ArrayList<>())
             .build();
 
-    when(userSyncScheduler.triggerManualSync()).thenReturn(results);
+    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
 
     // When & Then
     mockMvc
@@ -148,7 +148,7 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.failedHarpIds", hasSize(3)))
         .andExpect(jsonPath("$.unchangedHarpIds", empty()));
 
-    verify(userSyncScheduler, times(1)).triggerManualSync();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
 
   @Test
@@ -164,7 +164,7 @@ public class UserControllerMvcTest {
             .unchangedHarpIds(unchangedIds)
             .build();
 
-    when(userSyncScheduler.triggerManualSync()).thenReturn(results);
+    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
 
     // When & Then
     mockMvc
@@ -176,7 +176,7 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.failedHarpIds", empty()))
         .andExpect(jsonPath("$.unchangedHarpIds", hasSize(2)));
 
-    verify(userSyncScheduler, times(1)).triggerManualSync();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
 
   @Test
@@ -190,7 +190,7 @@ public class UserControllerMvcTest {
             .unchangedHarpIds(new ArrayList<>(List.of("unchanged1", "unchanged2", "unchanged3")))
             .build();
 
-    when(userSyncScheduler.triggerManualSync()).thenReturn(results);
+    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
 
     // When & Then
     mockMvc
@@ -202,7 +202,7 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.failedHarpIds", hasSize(1)))
         .andExpect(jsonPath("$.unchangedHarpIds", hasSize(3)));
 
-    verify(userSyncScheduler, times(1)).triggerManualSync();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
 
   @Test
@@ -213,7 +213,7 @@ public class UserControllerMvcTest {
             put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isUnauthorized());
 
-    verify(userSyncScheduler, never()).triggerManualSync();
+    verify(updateUserJobScheduler, never()).triggerUpdateUserJobManually();
   }
 
   @Test
@@ -224,7 +224,7 @@ public class UserControllerMvcTest {
         .perform(put("/users/all-users-refresh").contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isForbidden());
 
-    verify(userSyncScheduler, never()).triggerManualSync();
+    verify(updateUserJobScheduler, never()).triggerUpdateUserJobManually();
   }
 
   @Test
@@ -238,7 +238,7 @@ public class UserControllerMvcTest {
             .unchangedHarpIds(new ArrayList<>())
             .build();
 
-    when(userSyncScheduler.triggerManualSync()).thenReturn(results);
+    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
 
     // When & Then
     mockMvc
@@ -248,6 +248,6 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.updatedHarpIds", hasSize(1)))
         .andExpect(jsonPath("$.updatedHarpIds[0]", is("user1")));
 
-    verify(userSyncScheduler, times(1)).triggerManualSync();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
 }

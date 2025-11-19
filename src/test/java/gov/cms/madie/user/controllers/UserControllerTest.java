@@ -5,7 +5,7 @@ import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.dto.SyncJobResultsDto;
 import gov.cms.madie.user.services.UserService;
-import gov.cms.madie.user.services.UserSyncScheduler;
+import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 class UserControllerTest {
   @Mock private UserService userService;
   @Mock private Principal principal;
-  @Mock private UserSyncScheduler userSyncScheduler;
+  @Mock private UpdateUserJobScheduler userSyncScheduler;
   @InjectMocks private UserController userController;
 
   @BeforeEach
@@ -77,7 +77,7 @@ class UserControllerTest {
             .failedHarpIds(List.of("John"))
             .updatedHarpIds(List.of("Bob"))
             .build();
-    when(userSyncScheduler.triggerManualSync()).thenReturn(syncJobResultsDto);
+    when(userSyncScheduler.triggerUpdateUserJobManually()).thenReturn(syncJobResultsDto);
     // when
     ResponseEntity<SyncJobResultsDto> response = userController.refreshAllUsers(principal);
     // then
