@@ -1,7 +1,7 @@
 package gov.cms.madie.user.controllers;
 
 import gov.cms.madie.user.config.SecurityConfig;
-import gov.cms.madie.user.dto.SyncJobResultsDto;
+import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import org.junit.jupiter.api.Test;
@@ -41,8 +41,8 @@ public class UserControllerMvcTest {
     List<String> failedIds = new ArrayList<>(List.of("user4"));
     List<String> unchangedIds = new ArrayList<>(List.of("user5", "user6"));
 
-    SyncJobResultsDto results =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto results =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(updatedIds)
             .failedHarpIds(failedIds)
             .unchangedHarpIds(unchangedIds)
@@ -73,8 +73,8 @@ public class UserControllerMvcTest {
   @WithMockUser(username = "testuser")
   void refreshAllUsersReturnsEmptyResultsWhenNoUsers() throws Exception {
     // Given
-    SyncJobResultsDto emptyResults =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto emptyResults =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>())
             .failedHarpIds(new ArrayList<>())
             .unchangedHarpIds(new ArrayList<>())
@@ -101,8 +101,8 @@ public class UserControllerMvcTest {
     // Given - all users successfully updated
     List<String> updatedIds = new ArrayList<>(List.of("user1", "user2", "user3", "user4", "user5"));
 
-    SyncJobResultsDto results =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto results =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(updatedIds)
             .failedHarpIds(new ArrayList<>())
             .unchangedHarpIds(new ArrayList<>())
@@ -129,8 +129,8 @@ public class UserControllerMvcTest {
     // Given - all users failed
     List<String> failedIds = new ArrayList<>(List.of("user1", "user2", "user3"));
 
-    SyncJobResultsDto results =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto results =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>())
             .failedHarpIds(failedIds)
             .unchangedHarpIds(new ArrayList<>())
@@ -157,8 +157,8 @@ public class UserControllerMvcTest {
     // Given - all users unchanged
     List<String> unchangedIds = new ArrayList<>(List.of("user1", "user2"));
 
-    SyncJobResultsDto results =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto results =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>())
             .failedHarpIds(new ArrayList<>())
             .unchangedHarpIds(unchangedIds)
@@ -183,8 +183,8 @@ public class UserControllerMvcTest {
   @WithMockUser(username = "testuser")
   void refreshAllUsersHandlesMixedResults() throws Exception {
     // Given - mixed results with some of each
-    SyncJobResultsDto results =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto results =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>(List.of("updated1", "updated2")))
             .failedHarpIds(new ArrayList<>(List.of("failed1")))
             .unchangedHarpIds(new ArrayList<>(List.of("unchanged1", "unchanged2", "unchanged3")))
@@ -231,8 +231,8 @@ public class UserControllerMvcTest {
   @WithMockUser(username = "adminuser")
   void refreshAllUsersWorksForDifferentUsers() throws Exception {
     // Given
-    SyncJobResultsDto results =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto results =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>(List.of("user1")))
             .failedHarpIds(new ArrayList<>())
             .unchangedHarpIds(new ArrayList<>())

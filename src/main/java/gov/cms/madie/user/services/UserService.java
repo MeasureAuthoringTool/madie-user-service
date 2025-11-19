@@ -79,11 +79,11 @@ public class UserService {
    *Updates users in the database with fresh data from HARP.
    * @param harpIds List of HARP IDs to update
    */
-  public SyncJobResultsDto updateUsersFromHarp(List<String> harpIds) {
-    SyncJobResultsDto syncResults = new SyncJobResultsDto();
+  public UserUpdatesJobResultDto updateUsersFromHarp(List<String> harpIds) {
+    UserUpdatesJobResultDto userUpdatesJobResultDto = new UserUpdatesJobResultDto();
     if (CollectionUtils.isEmpty(harpIds)) {
       log.warn("No valid HARP IDs provided. aborting sync.");
-      return syncResults;
+      return userUpdatesJobResultDto;
     }
     TokenResponse token;
     // Get HARP token
@@ -91,7 +91,7 @@ public class UserService {
       token = harpProxyService.getToken();
     } catch (Exception e) {
       log.error("Error obtaining HARP token. Aborting user sync.", e);
-      return syncResults;
+      return userUpdatesJobResultDto;
     }
 
     // Fetch user details from HARP
@@ -100,8 +100,8 @@ public class UserService {
       detailsResponse = harpProxyService.fetchUserDetails(harpIds, token.getAccessToken());
     } catch (Exception e) {
       log.error("Error fetching HARP user details. Aborting user sync.", e);
-      syncResults.getFailedHarpIds().addAll(harpIds);
-      return syncResults;
+      userUpdatesJobResultDto.getFailedHarpIds().addAll(harpIds);
+      return userUpdatesJobResultDto;
     }
 
     if (detailsResponse != null && !CollectionUtils.isEmpty(detailsResponse.getUserdetails())) {
@@ -127,25 +127,25 @@ public class UserService {
             Map<String, Object> updates = prepareUpdate(existingUser, updatedUser);
             if (CollectionUtils.isEmpty(updates)) {
               log.info("No updates required for user with HARP ID: {}", harpId);
-              syncResults.getUnchangedHarpIds().add(harpId);
+              userUpdatesJobResultDto.getUnchangedHarpIds().add(harpId);
               continue;
             }
             customMadieUserRepository.updateMadieUser(updates, harpId);
-            syncResults.getUpdatedHarpIds().add(harpId);
+            userUpdatesJobResultDto.getUpdatedHarpIds().add(harpId);
           } else {
             log.warn("No user data returned from HARP for HARP ID: {}", harpId);
-            syncResults.getFailedHarpIds().add(harpId);
+            userUpdatesJobResultDto.getFailedHarpIds().add(harpId);
           }
         } catch (Exception e) {
           log.error("Failed to update user with HARP ID: {}", harpId, e);
-          syncResults.getFailedHarpIds().add(harpId);
+          userUpdatesJobResultDto.getFailedHarpIds().add(harpId);
         }
       }
     } else {
       log.warn("No user details returned from HARP for batch");
     }
 
-    return syncResults;
+    return userUpdatesJobResultDto;
   }
 
   private MadieUser buildMadieUser(UserDetail detail, UserRolesResponse rolesResponse) {

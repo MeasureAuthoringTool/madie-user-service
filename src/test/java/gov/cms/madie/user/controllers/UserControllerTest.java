@@ -3,7 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
-import gov.cms.madie.user.dto.SyncJobResultsDto;
+import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import org.junit.jupiter.api.Assertions;
@@ -72,19 +72,19 @@ class UserControllerTest {
   @Test
   void refreshAllUsersReturnsAccepted() {
     // given
-    SyncJobResultsDto syncJobResultsDto =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto resultsDto =
+        UserUpdatesJobResultDto.builder()
             .failedHarpIds(List.of("John"))
             .updatedHarpIds(List.of("Bob"))
             .build();
-    when(userSyncScheduler.triggerUpdateUserJobManually()).thenReturn(syncJobResultsDto);
+    when(userSyncScheduler.triggerUpdateUserJobManually()).thenReturn(resultsDto);
     // when
-    ResponseEntity<SyncJobResultsDto> response = userController.refreshAllUsers(principal);
+    ResponseEntity<UserUpdatesJobResultDto> response = userController.refreshAllUsers(principal);
     // then
     assertThat(response.getStatusCode().value(), is(200));
     Assertions.assertNotNull(response.getBody());
-    assertThat(response.getBody().getFailedHarpIds(), is(syncJobResultsDto.getFailedHarpIds()));
-    assertThat(response.getBody().getUpdatedHarpIds(), is(syncJobResultsDto.getUpdatedHarpIds()));
+    assertThat(response.getBody().getFailedHarpIds(), is(resultsDto.getFailedHarpIds()));
+    assertThat(response.getBody().getUpdatedHarpIds(), is(resultsDto.getUpdatedHarpIds()));
   }
 
   @Test

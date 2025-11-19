@@ -3,7 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
-import gov.cms.madie.user.dto.SyncJobResultsDto;
+import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import lombok.AllArgsConstructor;
@@ -44,7 +44,7 @@ public class UserController {
   }
 
   @PutMapping("/all-users-refresh")
-  public ResponseEntity<SyncJobResultsDto> refreshAllUsers(Principal principal) {
+  public ResponseEntity<UserUpdatesJobResultDto> refreshAllUsers(Principal principal) {
     log.info("User [{}] - Kicked off refresh job", principal.getName());
     return ResponseEntity.ok().body(updateUserJobScheduler.triggerUpdateUserJobManually());
   }

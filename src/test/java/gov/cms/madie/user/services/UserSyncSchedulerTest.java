@@ -1,7 +1,7 @@
 package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.MadieUser;
-import gov.cms.madie.user.dto.SyncJobResultsDto;
+import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.repositories.MadieUserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,13 +48,13 @@ class UserSyncSchedulerTest {
 
     when(madieUserRepository.findAllHarpIds(any(Pageable.class))).thenReturn(firstPage, secondPage);
 
-    SyncJobResultsDto firstBatchResult =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto firstBatchResult =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>(List.of("H1")))
             .failedHarpIds(new ArrayList<>(List.of("H2")))
             .build();
-    SyncJobResultsDto secondBatchResult =
-        SyncJobResultsDto.builder()
+    UserUpdatesJobResultDto secondBatchResult =
+        UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>(List.of("H3")))
             .failedHarpIds(new ArrayList<>())
             .build();
@@ -66,7 +66,7 @@ class UserSyncSchedulerTest {
               return harpIds.contains("H3") ? secondBatchResult : firstBatchResult;
             });
 
-    SyncJobResultsDto actualResults = userSyncScheduler.triggerUpdateUserJobManually();
+    UserUpdatesJobResultDto actualResults = userSyncScheduler.triggerUpdateUserJobManually();
 
     ArgumentCaptor<List<String>> harpIdsCaptor = ArgumentCaptor.forClass(List.class);
     verify(userService, times(2)).updateUsersFromHarp(harpIdsCaptor.capture());
@@ -83,7 +83,7 @@ class UserSyncSchedulerTest {
     Page<MadieUser> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 50), 0);
     when(madieUserRepository.findAllHarpIds(any(Pageable.class))).thenReturn(emptyPage);
 
-    SyncJobResultsDto actualResults = userSyncScheduler.triggerUpdateUserJobManually();
+    UserUpdatesJobResultDto actualResults = userSyncScheduler.triggerUpdateUserJobManually();
 
     assertThat(actualResults.getUpdatedHarpIds(), empty());
     assertThat(actualResults.getFailedHarpIds(), empty());
@@ -94,10 +94,10 @@ class UserSyncSchedulerTest {
   void triggerManualSyncDelegatesToScheduledSync() {
     UpdateUserJobScheduler schedulerSpy =
         spy(new UpdateUserJobScheduler(madieUserRepository, userService));
-    SyncJobResultsDto expectedResult = SyncJobResultsDto.builder().build();
+    UserUpdatesJobResultDto expectedResult = UserUpdatesJobResultDto.builder().build();
     doReturn(expectedResult).when(schedulerSpy).triggerUpdateUserJobManually();
 
-    SyncJobResultsDto actualResults = schedulerSpy.triggerUpdateUserJobManually();
+    UserUpdatesJobResultDto actualResults = schedulerSpy.triggerUpdateUserJobManually();
 
     assertThat(actualResults, is(expectedResult));
     verify(schedulerSpy).triggerUpdateUserJobManually();

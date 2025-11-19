@@ -138,7 +138,7 @@ class UserServiceTest {
 
   @Test
   void updateUsersFromHarpReturnsEmptyWhenNoIdsProvided() {
-    SyncJobResultsDto results = userService.updateUsersFromHarp(Collections.emptyList());
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(Collections.emptyList());
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
@@ -148,7 +148,7 @@ class UserServiceTest {
 
   @Test
   void updateUsersFromHarpReturnsEmptyWhenNullIdsProvided() {
-    SyncJobResultsDto results = userService.updateUsersFromHarp(null);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(null);
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
@@ -160,7 +160,7 @@ class UserServiceTest {
     List<String> harpIds = List.of("user1", "user2");
     when(harpProxyService.getToken()).thenThrow(new RuntimeException("Token error"));
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
@@ -175,7 +175,7 @@ class UserServiceTest {
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString()))
         .thenThrow(new RuntimeException("Fetch error"));
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), containsInAnyOrder("user1", "user2"));
@@ -227,7 +227,7 @@ class UserServiceTest {
     when(harpProxyService.fetchUserRoles(eq("harper"), anyString())).thenReturn(rolesResponse);
     when(madieUserRepository.findByHarpId("harper")).thenReturn(Optional.of(existingUser));
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), hasItem("harper"));
     assertThat(results.getFailedHarpIds(), empty());
@@ -251,7 +251,7 @@ class UserServiceTest {
     when(harpProxyService.getToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(null);
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
@@ -267,7 +267,7 @@ class UserServiceTest {
     when(harpProxyService.getToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(emptyResponse);
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), empty());
     verify(customMadieUserRepository, never()).updateMadieUser(anyMap(), anyString());
@@ -295,7 +295,7 @@ class UserServiceTest {
     when(harpProxyService.fetchUserRoles(eq("harper"), anyString()))
         .thenThrow(new RuntimeException("Role fetch failed"));
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), hasItem("harper"));
@@ -333,7 +333,7 @@ class UserServiceTest {
     when(harpProxyService.fetchUserRoles(eq("inactive"), anyString())).thenReturn(rolesResponse);
     when(madieUserRepository.findByHarpId("inactive")).thenReturn(Optional.of(existingUser));
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), hasItem("inactive"));
 
@@ -388,7 +388,7 @@ class UserServiceTest {
     when(harpProxyService.fetchUserRoles(eq("unchanged"), anyString())).thenReturn(rolesResponse);
     when(madieUserRepository.findByHarpId("unchanged")).thenReturn(Optional.of(existingUser));
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUnchangedHarpIds(), hasItem("unchanged"));
     assertThat(results.getUpdatedHarpIds(), empty());
@@ -446,7 +446,7 @@ class UserServiceTest {
     when(harpProxyService.fetchUserRoles(eq("user"), anyString())).thenReturn(rolesResponse);
     when(madieUserRepository.findByHarpId("user")).thenReturn(Optional.of(existingUser));
 
-    SyncJobResultsDto results = userService.updateUsersFromHarp(harpIds);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), hasItem("user"));
 

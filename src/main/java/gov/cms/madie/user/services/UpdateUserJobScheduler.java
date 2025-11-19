@@ -1,7 +1,7 @@
 package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.MadieUser;
-import gov.cms.madie.user.dto.SyncJobResultsDto;
+import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.repositories.MadieUserRepository;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
@@ -25,17 +25,15 @@ public class UpdateUserJobScheduler {
   private final MadieUserRepository madieUserRepository;
   private final UserService userService;
 
-  /**
-   * Scheduled job that syncs all user data from HARP.
-   */
+  /** Scheduled job that syncs all user data from HARP. */
   @Scheduled(cron = "${user.sync.cron}")
-  public SyncJobResultsDto triggerUpdateUsersJob() {
+  public UserUpdatesJobResultDto triggerUpdateUsersJob() {
     log.info("Starting scheduled user sync from HARP at {}", Instant.now());
 
     int pageSize = 50;
     int pageNumber = 0;
     Page<MadieUser> userPage;
-    SyncJobResultsDto syncJobResultsDto = new SyncJobResultsDto();
+    UserUpdatesJobResultDto syncJobResultsDto = new UserUpdatesJobResultDto();
     do {
       // Fetch users with pagination and projection (only harpId field)
       Pageable pageable = PageRequest.of(pageNumber, pageSize);
@@ -59,7 +57,7 @@ public class UpdateUserJobScheduler {
               .filter(StringUtils::isNotBlank)
               .collect(Collectors.toList());
 
-      SyncJobResultsDto jobResultsDto = userService.updateUsersFromHarp(harpIds);
+      UserUpdatesJobResultDto jobResultsDto = userService.updateUsersFromHarp(harpIds);
       // collect results
       if (!CollectionUtils.isEmpty(jobResultsDto.getFailedHarpIds())) {
         log.info("Sync failed for following users: {}", jobResultsDto.getFailedHarpIds());
@@ -87,9 +85,9 @@ public class UpdateUserJobScheduler {
   }
 
   /** Manual trigger sync job */
-  public SyncJobResultsDto triggerUpdateUserJobManually() {
+  public UserUpdatesJobResultDto triggerUpdateUserJobManually() {
     log.info("Manual user sync triggered...");
-    SyncJobResultsDto syncJobResultsDto = triggerUpdateUsersJob();
+    UserUpdatesJobResultDto syncJobResultsDto = triggerUpdateUsersJob();
     log.info("Manual user sync completed");
     return syncJobResultsDto;
   }
