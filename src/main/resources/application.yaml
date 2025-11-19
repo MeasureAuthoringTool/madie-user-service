@@ -27,13 +27,13 @@ logging:
   pattern:
     console: "%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] %mdc %-5level %logger{36}.%M - %msg%n"
 
-# User sync scheduler configuration
+# User update job scheduler configuration
 user:
   update:
     # Cron expression: run every 10 hours (at minute 0)
     # Format: second minute hour day-of-month month day-of-week
     # Example: "0 0 */10 * * *" => at 00:00, 10:00, 20:00 every day
-    cron-expression: ${USER_SYNC_CRON:0 0 */10 * * *}
+    cron-expression: ${USER_UPDATE_CRON:0 0 */10 * * *}
 
 harp:
   base-url: ${HARP_BASE_URL:https://test.harp.cms.gov}
