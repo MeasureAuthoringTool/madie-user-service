@@ -82,7 +82,7 @@ public class UserService {
   public UserUpdatesJobResultDto updateUsersFromHarp(List<String> harpIds) {
     UserUpdatesJobResultDto userUpdatesJobResultDto = new UserUpdatesJobResultDto();
     if (CollectionUtils.isEmpty(harpIds)) {
-      log.warn("No valid HARP IDs provided. aborting sync.");
+      log.warn("No valid HARP IDs provided. aborting user update job.");
       return userUpdatesJobResultDto;
     }
     TokenResponse token;
@@ -90,7 +90,7 @@ public class UserService {
     try {
       token = harpProxyService.getToken();
     } catch (Exception e) {
-      log.error("Error obtaining HARP token. Aborting user sync.", e);
+      log.error("Error obtaining HARP token. Aborting user update job.", e);
       return userUpdatesJobResultDto;
     }
 
@@ -99,7 +99,7 @@ public class UserService {
     try {
       detailsResponse = harpProxyService.fetchUserDetails(harpIds, token.getAccessToken());
     } catch (Exception e) {
-      log.error("Error fetching HARP user details. Aborting user sync.", e);
+      log.error("Error fetching HARP user details. Aborting user update job.", e);
       userUpdatesJobResultDto.getFailedHarpIds().addAll(harpIds);
       return userUpdatesJobResultDto;
     }

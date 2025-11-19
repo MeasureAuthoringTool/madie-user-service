@@ -29,11 +29,11 @@ logging:
 
 # User sync scheduler configuration
 user:
-  sync:
+  update:
     # Cron expression: run every 10 hours (at minute 0)
     # Format: second minute hour day-of-month month day-of-week
     # Example: "0 0 */10 * * *" => at 00:00, 10:00, 20:00 every day
-    cron: ${USER_SYNC_CRON:0 0 */10 * * *}
+    cron-expression: ${USER_SYNC_CRON:0 0 */10 * * *}
 
 harp:
   base-url: ${HARP_BASE_URL:https://test.harp.cms.gov}

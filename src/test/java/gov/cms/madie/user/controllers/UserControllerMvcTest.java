@@ -35,7 +35,7 @@ public class UserControllerMvcTest {
 
   @Test
   @WithMockUser(username = "testuser")
-  void refreshAllUsersSuccessfullyTriggersSync() throws Exception {
+  void refreshAllUsersSuccessfullyTriggersUpdateJob() throws Exception {
     // Given
     List<String> updatedIds = new ArrayList<>(List.of("user1", "user2", "user3"));
     List<String> failedIds = new ArrayList<>(List.of("user4"));

@@ -32,15 +32,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class UserSyncSchedulerTest {
+class UpdateUserJobSchedulerTest {
 
   @Mock private MadieUserRepository madieUserRepository;
   @Mock private UserService userService;
 
-  @InjectMocks private UpdateUserJobScheduler userSyncScheduler;
+  @InjectMocks private UpdateUserJobScheduler updateUserJobScheduler;
 
   @Test
-  void testSyncAllUsersFromHarp() {
+  void testUpdateAllUsersFromHarp() {
     Page<MadieUser> firstPage =
         new PageImpl<>(List.of(madieUser("H1"), madieUser("H2")), PageRequest.of(0, 50), 100);
     Page<MadieUser> secondPage =
@@ -66,7 +66,7 @@ class UserSyncSchedulerTest {
               return harpIds.contains("H3") ? secondBatchResult : firstBatchResult;
             });
 
-    UserUpdatesJobResultDto actualResults = userSyncScheduler.triggerUpdateUserJobManually();
+    UserUpdatesJobResultDto actualResults = updateUserJobScheduler.triggerUpdateUserJobManually();
 
     ArgumentCaptor<List<String>> harpIdsCaptor = ArgumentCaptor.forClass(List.class);
     verify(userService, times(2)).updateUsersFromHarp(harpIdsCaptor.capture());
@@ -79,11 +79,11 @@ class UserSyncSchedulerTest {
   }
 
   @Test
-  void testSyncAllUsersFromHarpWhenNoMadieUsersFound() {
+  void testUpdateAllUsersFromHarpWhenNoMadieUsersFound() {
     Page<MadieUser> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 50), 0);
     when(madieUserRepository.findAllHarpIds(any(Pageable.class))).thenReturn(emptyPage);
 
-    UserUpdatesJobResultDto actualResults = userSyncScheduler.triggerUpdateUserJobManually();
+    UserUpdatesJobResultDto actualResults = updateUserJobScheduler.triggerUpdateUserJobManually();
 
     assertThat(actualResults.getUpdatedHarpIds(), empty());
     assertThat(actualResults.getFailedHarpIds(), empty());
@@ -91,7 +91,7 @@ class UserSyncSchedulerTest {
   }
 
   @Test
-  void triggerManualSyncDelegatesToScheduledSync() {
+  void triggerManualUpdateUserDelegatesToScheduledJob() {
     UpdateUserJobScheduler schedulerSpy =
         spy(new UpdateUserJobScheduler(madieUserRepository, userService));
     UserUpdatesJobResultDto expectedResult = UserUpdatesJobResultDto.builder().build();

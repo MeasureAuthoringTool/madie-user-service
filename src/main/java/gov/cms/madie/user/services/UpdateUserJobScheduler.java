@@ -25,15 +25,15 @@ public class UpdateUserJobScheduler {
   private final MadieUserRepository madieUserRepository;
   private final UserService userService;
 
-  /** Scheduled job that syncs all user data from HARP. */
-  @Scheduled(cron = "${user.sync.cron}")
+  /** Scheduled job that updates all user data from HARP. */
+  @Scheduled(cron = "${user.update.cron-expression}")
   public UserUpdatesJobResultDto triggerUpdateUsersJob() {
-    log.info("Starting scheduled user sync from HARP at {}", Instant.now());
+    log.info("Starting user update job from HARP at {}", Instant.now());
 
     int pageSize = 50;
     int pageNumber = 0;
     Page<MadieUser> userPage;
-    UserUpdatesJobResultDto syncJobResultsDto = new UserUpdatesJobResultDto();
+    UserUpdatesJobResultDto updateJobResultsDto = new UserUpdatesJobResultDto();
     do {
       // Fetch users with pagination and projection (only harpId field)
       Pageable pageable = PageRequest.of(pageNumber, pageSize);
@@ -57,17 +57,17 @@ public class UpdateUserJobScheduler {
               .filter(StringUtils::isNotBlank)
               .collect(Collectors.toList());
 
-      UserUpdatesJobResultDto jobResultsDto = userService.updateUsersFromHarp(harpIds);
+      UserUpdatesJobResultDto resultsDto = userService.updateUsersFromHarp(harpIds);
       // collect results
-      if (!CollectionUtils.isEmpty(jobResultsDto.getFailedHarpIds())) {
-        log.info("Sync failed for following users: {}", jobResultsDto.getFailedHarpIds());
-        syncJobResultsDto.getFailedHarpIds().addAll(jobResultsDto.getFailedHarpIds());
+      if (!CollectionUtils.isEmpty(resultsDto.getFailedHarpIds())) {
+        log.info("Update failed for following users: {}", resultsDto.getFailedHarpIds());
+        updateJobResultsDto.getFailedHarpIds().addAll(resultsDto.getFailedHarpIds());
       }
-      if (!CollectionUtils.isEmpty(jobResultsDto.getUpdatedHarpIds())) {
-        syncJobResultsDto.getUpdatedHarpIds().addAll(jobResultsDto.getUpdatedHarpIds());
+      if (!CollectionUtils.isEmpty(resultsDto.getUpdatedHarpIds())) {
+        updateJobResultsDto.getUpdatedHarpIds().addAll(resultsDto.getUpdatedHarpIds());
       }
-      if (!CollectionUtils.isEmpty(jobResultsDto.getUnchangedHarpIds())) {
-        syncJobResultsDto.getUnchangedHarpIds().addAll(jobResultsDto.getUnchangedHarpIds());
+      if (!CollectionUtils.isEmpty(resultsDto.getUnchangedHarpIds())) {
+        updateJobResultsDto.getUnchangedHarpIds().addAll(resultsDto.getUnchangedHarpIds());
       }
       // Update page number
       pageNumber++;
@@ -75,20 +75,20 @@ public class UpdateUserJobScheduler {
 
     log.info(
         """
-        Completed scheduled user sync from HARP at {}
+        Completed scheduled user update from HARP at {}
         Total users updated successfully: {}\s
         Total users failed to update: {}""",
         Instant.now(),
-        syncJobResultsDto.getUpdatedHarpIds().size(),
-        syncJobResultsDto.getFailedHarpIds().size());
-    return syncJobResultsDto;
+        updateJobResultsDto.getUpdatedHarpIds().size(),
+        updateJobResultsDto.getFailedHarpIds().size());
+    return updateJobResultsDto;
   }
 
-  /** Manual trigger sync job */
+  /** update job manual trigger */
   public UserUpdatesJobResultDto triggerUpdateUserJobManually() {
-    log.info("Manual user sync triggered...");
-    UserUpdatesJobResultDto syncJobResultsDto = triggerUpdateUsersJob();
-    log.info("Manual user sync completed");
-    return syncJobResultsDto;
+    log.info("Manual user update triggered...");
+    UserUpdatesJobResultDto jobResultsDto = triggerUpdateUsersJob();
+    log.info("Manual user update completed");
+    return jobResultsDto;
   }
 }

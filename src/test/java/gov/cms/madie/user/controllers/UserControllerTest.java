@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 class UserControllerTest {
   @Mock private UserService userService;
   @Mock private Principal principal;
-  @Mock private UpdateUserJobScheduler userSyncScheduler;
+  @Mock private UpdateUserJobScheduler updateUserJobScheduler;
   @InjectMocks private UserController userController;
 
   @BeforeEach
@@ -77,7 +77,7 @@ class UserControllerTest {
             .failedHarpIds(List.of("John"))
             .updatedHarpIds(List.of("Bob"))
             .build();
-    when(userSyncScheduler.triggerUpdateUserJobManually()).thenReturn(resultsDto);
+    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(resultsDto);
     // when
     ResponseEntity<UserUpdatesJobResultDto> response = userController.refreshAllUsers(principal);
     // then
