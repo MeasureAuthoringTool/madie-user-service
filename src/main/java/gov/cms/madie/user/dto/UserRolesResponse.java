@@ -12,9 +12,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserRolesResponse {
-    private boolean success;
-    private List<UserRole> userRoles;
-    private int totalRoleCount;
-    private String message;
+  private boolean success;
+  private List<UserRole> userRoles;
+  private int totalRoleCount;
+  private String message;
 }
-

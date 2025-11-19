@@ -3,7 +3,10 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.user.dto.SyncJobResultsDto;
 import gov.cms.madie.user.services.UserService;
+import gov.cms.madie.user.services.UserSyncScheduler;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.security.Principal;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -24,6 +28,7 @@ import static org.mockito.Mockito.*;
 class UserControllerTest {
   @Mock private UserService userService;
   @Mock private Principal principal;
+  @Mock private UserSyncScheduler userSyncScheduler;
   @InjectMocks private UserController userController;
 
   @BeforeEach
@@ -66,11 +71,20 @@ class UserControllerTest {
 
   @Test
   void refreshAllUsersReturnsAccepted() {
+    // given
+    SyncJobResultsDto syncJobResultsDto =
+        SyncJobResultsDto.builder()
+            .failedHarpIds(List.of("John"))
+            .updatedHarpIds(List.of("Bob"))
+            .build();
+    when(userSyncScheduler.triggerManualSync()).thenReturn(syncJobResultsDto);
     // when
-    ResponseEntity<Object> response = userController.refreshAllUsers(principal);
+    ResponseEntity<SyncJobResultsDto> response = userController.refreshAllUsers(principal);
     // then
-    assertThat(response.getStatusCode().value(), is(202));
-    assertThat(response.getBody(), is("User refresh job accepted"));
+    assertThat(response.getStatusCode().value(), is(200));
+    Assertions.assertNotNull(response.getBody());
+    assertThat(response.getBody().getFailedHarpIds(), is(syncJobResultsDto.getFailedHarpIds()));
+    assertThat(response.getBody().getUpdatedHarpIds(), is(syncJobResultsDto.getUpdatedHarpIds()));
   }
 
   @Test

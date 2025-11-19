@@ -23,9 +23,17 @@ management:
 
 logging:
   level:
-    root: ${LOG_LEVEL:DEBUG}
+    root: ${LOG_LEVEL:INFO}
   pattern:
     console: "%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] %mdc %-5level %logger{36}.%M - %msg%n"
+
+# User sync scheduler configuration
+user:
+  sync:
+    # Cron expression: run every 10 hours (at minute 0)
+    # Format: second minute hour day-of-month month day-of-week
+    # Example: "0 0 */10 * * *" => at 00:00, 10:00, 20:00 every day
+    cron: ${USER_SYNC_CRON:0 0 */10 * * *}
 
 harp:
   base-url: ${HARP_BASE_URL:https://test.harp.cms.gov}
@@ -40,8 +48,6 @@ harp:
     uri: /userRoleCreationApi
   user-find:
     uri: /userFindApi
-
-
 
 okta:
   oauth2:

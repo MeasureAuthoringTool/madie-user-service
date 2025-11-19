@@ -3,7 +3,9 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.user.dto.SyncJobResultsDto;
 import gov.cms.madie.user.services.UserService;
+import gov.cms.madie.user.services.UserSyncScheduler;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import java.util.Map;
 public class UserController {
 
   private UserService userService;
+  private UserSyncScheduler userSyncScheduler;
 
   @GetMapping("/{harpId}")
   public ResponseEntity<MadieUser> getUser(@PathVariable String harpId, Principal principal) {
@@ -41,9 +44,9 @@ public class UserController {
   }
 
   @PutMapping("/all-users-refresh")
-  public ResponseEntity<Object> refreshAllUsers(Principal principal) {
-    log.info("User [{}] - Kicked off refresh of all users", principal.getName());
-    return ResponseEntity.accepted().body("User refresh job accepted");
+  public ResponseEntity<SyncJobResultsDto> refreshAllUsers(Principal principal) {
+    log.info("User [{}] - Kicked off refresh job", principal.getName());
+    return ResponseEntity.ok().body(userSyncScheduler.triggerManualSync());
   }
 
   @GetMapping("/{harpId}/details")

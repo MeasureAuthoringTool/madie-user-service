@@ -12,10 +12,9 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserDetailsRequest {
-    private String programName;
-    private Map<String, List<String>> attributes;
-    private String details;
-    private int offset;
-    private int max;
+  private String programName;
+  private Map<String, List<String>> attributes;
+  private String details;
+  private int offset;
+  private int max;
 }
-
