@@ -26,10 +26,9 @@ public class UpdateUserJobScheduler {
   private final UserService userService;
 
   /**
-   * Scheduled job that syncs all user data from HARP. Runs every 5 minutes by default (configurable
-   * via application.yaml).
+   * Scheduled job that syncs all user data from HARP.
    */
-  @Scheduled(cron = "${user.sync.cron:0 */5 * * * *}")
+  @Scheduled(cron = "${user.sync.cron}")
   public SyncJobResultsDto triggerUpdateUsersJob() {
     log.info("Starting scheduled user sync from HARP at {}", Instant.now());
 
