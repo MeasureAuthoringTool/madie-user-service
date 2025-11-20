@@ -84,7 +84,7 @@ public class UserController {
         detailsRequest.getHarpIds().stream()
             .collect(
                 java.util.stream.Collectors.toMap(
-                    harpId -> harpId, harpId -> userService.getUserDetailsByHarpId(harpId)));
+                    harpId -> harpId, userService::getUserDetailsByHarpId));
     return ResponseEntity.ok(userDetailsMap);
   }
 }

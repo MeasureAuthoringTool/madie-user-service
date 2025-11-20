@@ -416,6 +416,7 @@ class UserPatchRepositoryImplTest {
     // when
     MadieUser result = repository.loginUser(user);
     // then
+    assertThat(result, is(notNullValue()));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(

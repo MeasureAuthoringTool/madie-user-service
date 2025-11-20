@@ -1,6 +1,5 @@
 package gov.cms.madie.user.dto;
 
-import gov.cms.madie.user.test.utils.TestRuntimeException;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 

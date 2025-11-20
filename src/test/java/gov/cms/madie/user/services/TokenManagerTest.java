@@ -37,7 +37,7 @@ class TokenManagerTest {
   }
 
   @Test
-  void getCurrentTokenRefreshesTokenWhenTokenIsNull() throws Exception {
+  void getCurrentTokenRefreshesTokenWhenTokenIsNull() {
     // given
     ReflectionTestUtils.setField(TokenManager.class, "currentToken", null);
     // when
