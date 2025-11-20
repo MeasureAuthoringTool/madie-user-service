@@ -54,6 +54,8 @@ class UserPatchRepositoryImplTest {
     MadieUser result = repository.loginUser(user);
     // then
     assertThat("Returned user should match expected", result, is(expected));
+    assertThat(result.getHarpId(), is("harp123"));
+    assertThat(result.getRoles(), is(empty()));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(
@@ -88,6 +90,8 @@ class UserPatchRepositoryImplTest {
     MadieUser result = repository.loginUser(user);
     // then
     assertThat("Returned user should match expected", result, is(expected));
+    assertThat(result.getHarpId(), is("harp456"));
+    assertThat(result.getRoles(), is(empty()));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(
@@ -121,6 +125,8 @@ class UserPatchRepositoryImplTest {
     MadieUser result = repository.loginUser(user);
     // then
     assertThat("Returned user should match expected", result, is(expected));
+    assertThat(result.getHarpId(), is("harp789"));
+    assertThat(result.getAccessStartAt(), is(nullValue()));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(
@@ -151,6 +157,9 @@ class UserPatchRepositoryImplTest {
     MadieUser result = repository.loginUser(user);
     // then
     assertThat("Returned user should match expected", result, is(expected));
+    assertThat(result.getHarpId(), is("harp000"));
+    assertThat(result.getRoles(), is(empty()));
+    assertThat(result.getAccessStartAt(), is(nullValue()));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(
@@ -309,6 +318,8 @@ class UserPatchRepositoryImplTest {
     // when
     MadieUser result = repository.loginUser(user);
     // then
+    assertThat(result, is(notNullValue()));
+    assertThat(result.getHarpId(), is("statusonly"));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(
@@ -341,6 +352,8 @@ class UserPatchRepositoryImplTest {
     // when
     MadieUser result = repository.loginUser(user);
     // then
+    assertThat(result, is(notNullValue()));
+    assertThat(result.getHarpId(), is("rolesonly"));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(
@@ -373,6 +386,8 @@ class UserPatchRepositoryImplTest {
     // when
     MadieUser result = repository.loginUser(user);
     // then
+    assertThat(result, is(notNullValue()));
+    assertThat(result.getHarpId(), is("accessonly"));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(
