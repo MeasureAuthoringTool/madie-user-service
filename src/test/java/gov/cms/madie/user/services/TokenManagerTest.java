@@ -1,9 +1,9 @@
 package gov.cms.madie.user.services;
 
 import gov.cms.madie.user.dto.TokenResponse;
-import gov.cms.madie.user.test.utils.TestRuntimeException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -21,13 +21,7 @@ class TokenManagerTest {
     tokenResponse = mock(TokenResponse.class);
     when(harpProxyService.getToken()).thenReturn(tokenResponse);
     // Reset static field before each test
-    try {
-      var field = TokenManager.class.getDeclaredField("currentToken");
-      field.setAccessible(true);
-      field.set(null, null);
-    } catch (Exception e) {
-      throw new TestRuntimeException(e);
-    }
+    ReflectionTestUtils.setField(TokenManager.class, "currentToken", null);
     tokenManager = new TokenManager(harpProxyService);
   }
 

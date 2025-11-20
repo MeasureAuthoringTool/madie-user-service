@@ -96,9 +96,9 @@ class UserPatchRepositoryImplTest {
             any(FindAndModifyOptions.class),
             eq(MadieUser.class));
     Update update = updateCaptor.getValue();
-    // Instead of checking for $unset, check that roles is set to an empty list
     String updateStr = update.getUpdateObject().toString();
-    assertThat("Update should set roles to empty list", updateStr, containsString("roles=[]"));
+    assertThat("Update should unset roles", updateStr, containsString("$unset"));
+    assertThat("Update should unset roles field", updateStr, containsString("roles"));
   }
 
   @Test
@@ -253,5 +253,158 @@ class UserPatchRepositoryImplTest {
     Object harpIdValue = capturedQuery.getQueryObject().get("harpId");
     assertThat(
         "harpId in query should be lowercase", harpIdValue, is(mixedCaseHarpId.toLowerCase()));
+  }
+
+  @Test
+  void loginUserWithAllFieldsNullExceptHarpIdUnsetsAllOptionalFields() {
+    // given
+    MadieUser user = MadieUser.builder().harpId("nullfields").build();
+    MadieUser expected = MadieUser.builder().harpId("nullfields").build();
+    when(mongoTemplate.findAndModify(
+            any(Query.class),
+            any(Update.class),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class)))
+        .thenReturn(expected);
+    // when
+    MadieUser result = repository.loginUser(user);
+    // then
+    ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
+    verify(mongoTemplate)
+        .findAndModify(
+            any(Query.class),
+            updateCaptor.capture(),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class));
+    String updateStr = updateCaptor.getValue().getUpdateObject().toString();
+    assertThat("Update should unset roles", updateStr, containsString("roles"));
+    assertThat("Update should unset status", updateStr, containsString("status"));
+    assertThat("Update should unset accessStartAt", updateStr, containsString("accessStartAt"));
+    assertThat("Update should contain $unset", updateStr, containsString("$unset"));
+    assertThat(
+        "Update should set audit fields",
+        updateStr,
+        allOf(
+            containsString("lastModifiedAt"),
+            containsString("lastLoginAt"),
+            containsString("createdAt")));
+  }
+
+  @Test
+  void loginUserWithOnlyStatusSetSetsStatusAndUnsetsOthers() {
+    // given
+    MadieUser user = MadieUser.builder().harpId("statusonly").status(UserStatus.ACTIVE).build();
+    MadieUser expected = MadieUser.builder().harpId("statusonly").build();
+    when(mongoTemplate.findAndModify(
+            any(Query.class),
+            any(Update.class),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class)))
+        .thenReturn(expected);
+    // when
+    MadieUser result = repository.loginUser(user);
+    // then
+    ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
+    verify(mongoTemplate)
+        .findAndModify(
+            any(Query.class),
+            updateCaptor.capture(),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class));
+    String updateStr = updateCaptor.getValue().getUpdateObject().toString();
+    assertThat("Update should set status", updateStr, containsString("status"));
+    assertThat("Update should unset roles", updateStr, containsString("roles"));
+    assertThat("Update should unset accessStartAt", updateStr, containsString("accessStartAt"));
+    assertThat("Update should contain $unset", updateStr, containsString("$unset"));
+  }
+
+  @Test
+  void loginUserWithOnlyRolesSetSetsRolesAndUnsetsOthers() {
+    // given
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("rolesonly")
+            .roles(List.of(HarpRole.builder().role("role1").roleType("type1").build()))
+            .build();
+    MadieUser expected = MadieUser.builder().harpId("rolesonly").build();
+    when(mongoTemplate.findAndModify(
+            any(Query.class),
+            any(Update.class),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class)))
+        .thenReturn(expected);
+    // when
+    MadieUser result = repository.loginUser(user);
+    // then
+    ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
+    verify(mongoTemplate)
+        .findAndModify(
+            any(Query.class),
+            updateCaptor.capture(),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class));
+    String updateStr = updateCaptor.getValue().getUpdateObject().toString();
+    assertThat("Update should set roles", updateStr, containsString("roles"));
+    assertThat("Update should unset status", updateStr, containsString("status"));
+    assertThat("Update should unset accessStartAt", updateStr, containsString("accessStartAt"));
+    assertThat("Update should contain $unset", updateStr, containsString("$unset"));
+  }
+
+  @Test
+  void loginUserWithOnlyAccessStartAtSetSetsAccessStartAtAndUnsetsOthers() {
+    // given
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("accessonly")
+            .accessStartAt(Instant.parse("2025-11-20T10:00:00Z"))
+            .build();
+    MadieUser expected = MadieUser.builder().harpId("accessonly").build();
+    when(mongoTemplate.findAndModify(
+            any(Query.class),
+            any(Update.class),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class)))
+        .thenReturn(expected);
+    // when
+    MadieUser result = repository.loginUser(user);
+    // then
+    ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
+    verify(mongoTemplate)
+        .findAndModify(
+            any(Query.class),
+            updateCaptor.capture(),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class));
+    String updateStr = updateCaptor.getValue().getUpdateObject().toString();
+    assertThat("Update should set accessStartAt", updateStr, containsString("accessStartAt"));
+    assertThat("Update should unset status", updateStr, containsString("status"));
+    assertThat("Update should unset roles", updateStr, containsString("roles"));
+    assertThat("Update should contain $unset", updateStr, containsString("$unset"));
+  }
+
+  @Test
+  void loginUserWithEmptyRolesUnsetsRoles() {
+    // given
+    MadieUser user = MadieUser.builder().harpId("emptyroles").roles(List.of()).build();
+    MadieUser expected = MadieUser.builder().harpId("emptyroles").build();
+    when(mongoTemplate.findAndModify(
+            any(Query.class),
+            any(Update.class),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class)))
+        .thenReturn(expected);
+    // when
+    MadieUser result = repository.loginUser(user);
+    // then
+    ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
+    verify(mongoTemplate)
+        .findAndModify(
+            any(Query.class),
+            updateCaptor.capture(),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class));
+    String updateStr = updateCaptor.getValue().getUpdateObject().toString();
+    assertThat("Update should unset roles", updateStr, containsString("roles"));
+    assertThat("Update should contain $unset", updateStr, containsString("$unset"));
   }
 }

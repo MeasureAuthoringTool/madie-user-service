@@ -19,7 +19,12 @@ public class TokenManager {
 
   public synchronized TokenResponse getCurrentToken() {
     if (currentToken == null || currentToken.isExpired()) {
-      currentToken = harpProxyService.getToken();
+      try {
+        currentToken = harpProxyService.getToken();
+      } catch (Exception e) {
+        log.error("Unable to refresh HARP token due to error", e);
+        currentToken = null;
+      }
     }
     return currentToken;
   }

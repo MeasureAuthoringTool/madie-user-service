@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
+import org.springframework.util.CollectionUtils;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -37,7 +38,7 @@ public class UserPatchRepositoryImpl implements UserPatchRepository {
     // Set createdAt only on insert (first time creation)
     update.setOnInsert("createdAt", now);
 
-    if (madieUser.getRoles() != null) {
+    if (!CollectionUtils.isEmpty(madieUser.getRoles())) {
       update.set("roles", madieUser.getRoles());
     } else {
       update.unset("roles");
