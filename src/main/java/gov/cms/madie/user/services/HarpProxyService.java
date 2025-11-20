@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -29,8 +31,10 @@ public class HarpProxyService {
 
   /**
    * Fetches an access token from the HARP API using clientId and secret from environment.
+   *
    * @return TokenResponse containing the access token and related information.
    */
+  @Retryable(maxAttempts = 2, backoff = @Backoff(delay = 100))
   public TokenResponse getToken() {
     // Create Basic Auth header
     String auth = harpConfig.getToken().getClientId() + ":" + harpConfig.getToken().getSecret();
@@ -55,6 +59,7 @@ public class HarpProxyService {
 
   /**
    * Fetches user details from the HARP API for a list of HARP IDs using the provided access token.
+   *
    * @param harpIds List of HARP IDs to fetch details for.
    * @param harpToken Access token to authenticate the request.
    * @return UserDetailsResponse containing the user details for the provided HARP IDs.
@@ -63,13 +68,14 @@ public class HarpProxyService {
     String url = harpConfig.getBaseUrl() + harpConfig.getUserFind().getUri() + "/findUser";
     HttpHeaders headers = createApiHeaders(harpToken);
 
-    UserDetailsRequest body = UserDetailsRequest.builder()
-      .programName(harpConfig.getProgramName())
-      .attributes(java.util.Map.of("username", harpIds))
-      .details("all")
-      .offset(0)
-      .max(harpIds.size())
-      .build();
+    UserDetailsRequest body =
+        UserDetailsRequest.builder()
+            .programName(harpConfig.getProgramName())
+            .attributes(java.util.Map.of("username", harpIds))
+            .details("all")
+            .offset(0)
+            .max(harpIds.size())
+            .build();
 
     HttpEntity<UserDetailsRequest> requestEntity = new HttpEntity<>(body, headers);
     return harpRestTemplate.postForObject(url, requestEntity, UserDetailsResponse.class);
@@ -77,6 +83,7 @@ public class HarpProxyService {
 
   /**
    * Fetches user roles from the HARP API for a given HARP ID using the provided access token.
+   *
    * @param harpId HARP ID of the user to fetch roles for.
    * @param harpToken Access token to authenticate the request.
    * @return UserRolesResponse containing the user roles for the provided HARP ID.
@@ -85,11 +92,12 @@ public class HarpProxyService {
     String url = harpConfig.getBaseUrl() + harpConfig.getUserRoles().getUri() + "/getUserRoles";
     HttpHeaders headers = createApiHeaders(harpToken);
 
-    UserRolesRequest body = UserRolesRequest.builder()
-      .userName(harpId)
-      .adoName(harpConfig.getAdoName())
-      .programName(harpConfig.getProgramName())
-      .build();
+    UserRolesRequest body =
+        UserRolesRequest.builder()
+            .userName(harpId)
+            .adoName(harpConfig.getAdoName())
+            .programName(harpConfig.getProgramName())
+            .build();
 
     HttpEntity<UserRolesRequest> requestEntity = new HttpEntity<>(body, headers);
 

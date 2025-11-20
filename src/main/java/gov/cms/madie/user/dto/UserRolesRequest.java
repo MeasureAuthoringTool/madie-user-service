@@ -10,8 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserRolesRequest {
-    private String userName;
-    private String adoName;
-    private String programName;
+  private String userName;
+  private String adoName;
+  private String programName;
 }
-

@@ -6,3 +6,26 @@ spring:
     mongodb:
       database: test
       uri: mongodb://test/test
+
+logging:
+  level:
+    org:
+      springframework:
+        web:
+          filter:
+            CommonsRequestLoggingFilter: DEBUG
+
+
+harp:
+  base-url: http://localhost:8088/fake-harp
+  program-name: MADiE
+  ado-name: MADiE
+  token:
+    uri: /harpAuthzApi/token
+    scope: userRoleCreationApi userFindApi
+    client-id: fakeHarpClientId
+    secret: not_a_real_secret
+  user-roles:
+    uri: /userRoleCreationApi
+  user-find:
+    uri: /userFindApi
