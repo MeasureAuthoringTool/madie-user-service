@@ -17,10 +17,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -216,30 +213,36 @@ public class UserService {
       updates.put("lastModifiedAt", updatedUser.getLastModifiedAt());
     }
     // Handle role updates
-    if (CollectionUtils.isEmpty(updatedUser.getRoles())) {
+    getRoleUpdates(updates, madieUser.getRoles(), updatedUser.getRoles());
+
+    return updates;
+  }
+
+  private void getRoleUpdates(
+      Map<String, Object> updates, List<HarpRole> existingRoles, List<HarpRole> newRoles) {
+    // Handle role updates
+    if (CollectionUtils.isEmpty(newRoles)) {
       // if no roles from HARP, clear existing roles
-      updates.put("roles", List.of());
-    } else if (CollectionUtils.isEmpty(madieUser.getRoles())) {
+      updates.put("roles", Collections.emptyList());
+    } else if (CollectionUtils.isEmpty(existingRoles)) {
       // if no existing roles, add all new roles
-      updates.put("roles", updatedUser.getRoles());
-    } else if (madieUser.getRoles().size() == 1 && updatedUser.getRoles().size() == 1) {
+      updates.put("roles", newRoles);
+    } else if (existingRoles.size() == 1 && newRoles.size() == 1) {
       // if only one role exists, and it's different, replace existing role
-      if (!madieUser.getRoles().get(0).equals(updatedUser.getRoles().get(0))) {
-        updates.put("roles", updatedUser.getRoles());
+      if (!existingRoles.get(0).equals(newRoles.get(0))) {
+        updates.put("roles", newRoles);
       }
     } else {
       // Add new roles if it doesn't exist, keep existing roles that are still valid
-      List<HarpRole> existingRoles = madieUser.getRoles();
-      List<HarpRole> newRoles = updatedUser.getRoles();
       List<HarpRole> rolesToKeep = existingRoles.stream().filter(newRoles::contains).toList();
       List<HarpRole> rolesToAdd =
           newRoles.stream().filter(role -> !existingRoles.contains(role)).toList();
-      updates.put(
-          "roles",
-          Stream.of(rolesToAdd, rolesToKeep).flatMap(List::stream).collect(Collectors.toList()));
+      List<HarpRole> updatedRoles =
+          Stream.concat(rolesToKeep.stream(), rolesToAdd.stream()).toList();
+      if (!CollectionUtils.isEmpty(updatedRoles)) {
+        updates.put("roles", updatedRoles);
+      }
     }
-
-    return updates;
   }
 
   private Instant convertoInstant(String dateTimeStr) {
