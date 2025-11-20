@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -32,6 +34,7 @@ public class HarpProxyService {
    *
    * @return TokenResponse containing the access token and related information.
    */
+  @Retryable(maxAttempts = 2, backoff = @Backoff(delay = 100))
   public TokenResponse getToken() {
     // Create Basic Auth header
     String auth = harpConfig.getToken().getClientId() + ":" + harpConfig.getToken().getSecret();

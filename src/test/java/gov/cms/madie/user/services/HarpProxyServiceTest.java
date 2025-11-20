@@ -34,10 +34,6 @@ class HarpProxyServiceTest {
     tokenConfig.setSecret("secret");
     tokenConfig.setScope("scope");
     tokenConfig.setUri("/token");
-
-    //        when(harpConfig.getToken()).thenReturn(tokenConfig);
-    //        when(harpConfig.getBaseUrl()).thenReturn("http://localhost");
-    //        when(harpConfig.getProgramName()).thenReturn("TestProgram");
   }
 
   @Test

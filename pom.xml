@@ -74,7 +74,19 @@
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-cache</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-mongodb</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.retry</groupId>
+      <artifactId>spring-retry</artifactId>
     </dependency>
     <dependency>
       <groupId>com.okta.spring</groupId>
@@ -91,7 +103,7 @@
     <dependency>
       <groupId>gov.cms.madie</groupId>
       <artifactId>madie-java-models</artifactId>
-      <version>0.7.0-SNAPSHOT</version>
+      <version>0.7.2-SNAPSHOT</version>
     </dependency>
 
     <dependency>
@@ -116,35 +128,6 @@
       <url>https://maven.pkg.github.com/measureauthoringtool/madie-java-models</url>
     </repository>
   </repositories>
-
-  <!--	<build>-->
-  <!--		<plugins>-->
-  <!--			<plugin>-->
-  <!--				<groupId>org.apache.maven.plugins</groupId>-->
-  <!--				<artifactId>maven-compiler-plugin</artifactId>-->
-  <!--				<configuration>-->
-  <!--					<annotationProcessorPaths>-->
-  <!--						<path>-->
-  <!--							<groupId>org.projectlombok</groupId>-->
-  <!--							<artifactId>lombok</artifactId>-->
-  <!--						</path>-->
-  <!--					</annotationProcessorPaths>-->
-  <!--				</configuration>-->
-  <!--			</plugin>-->
-  <!--			<plugin>-->
-  <!--				<groupId>org.springframework.boot</groupId>-->
-  <!--				<artifactId>spring-boot-maven-plugin</artifactId>-->
-  <!--				<configuration>-->
-  <!--					<excludes>-->
-  <!--						<exclude>-->
-  <!--							<groupId>org.projectlombok</groupId>-->
-  <!--							<artifactId>lombok</artifactId>-->
-  <!--						</exclude>-->
-  <!--					</excludes>-->
-  <!--				</configuration>-->
-  <!--			</plugin>-->
-  <!--		</plugins>-->
-  <!--	</build>-->
 
   <build>
     <pluginManagement>

@@ -48,6 +48,8 @@ harp:
     uri: /userRoleCreationApi
   user-find:
     uri: /userFindApi
+  test:
+    override-id: ${HARP_LOCAL_OVERRIDE_ID:}
 
 okta:
   oauth2:
