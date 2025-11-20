@@ -25,7 +25,7 @@ public class UserPatchRepositoryImpl implements UserPatchRepository {
   public MadieUser loginUser(@NotNull MadieUser madieUser) {
     Objects.requireNonNull(madieUser.getHarpId());
 
-    Query query = new Query(Criteria.where("harpId").is(madieUser.getHarpId()));
+    Query query = new Query(Criteria.where("harpId").is(madieUser.getHarpId().toLowerCase()));
 
     Update update = new Update();
     Instant now = Instant.now();
@@ -41,6 +41,11 @@ public class UserPatchRepositoryImpl implements UserPatchRepository {
       update.set("roles", madieUser.getRoles());
     } else {
       update.unset("roles");
+    }
+    if (madieUser.getStatus() != null) {
+      update.set("status", madieUser.getStatus());
+    } else {
+      update.unset("status");
     }
     if (madieUser.getAccessStartAt() != null) {
       update.set("accessStartAt", madieUser.getAccessStartAt());

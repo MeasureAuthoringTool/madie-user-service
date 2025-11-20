@@ -2,7 +2,9 @@ package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
+import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.user.config.HarpConfig;
 import gov.cms.madie.user.dto.TokenResponse;
 import gov.cms.madie.user.dto.UserRolesResponse;
 import gov.cms.madie.user.repositories.UserRepository;
@@ -24,6 +26,7 @@ public class UserService {
   private final TokenManager tokenManager;
   private final UserRepository userRepository;
   private final HarpProxyService harpProxyService;
+  private final HarpConfig harpConfig;
 
   public MadieUser getUserByHarpId(String harpId) {
     // TODO: replace with database lookup
@@ -45,6 +48,7 @@ public class UserService {
           MadieUser.builder()
               .harpId(harpId)
               .accessStartAt(getMostRecentStartDate(userRolesResponse))
+              .status(getStatusForRoles(userRolesResponse))
               .roles(
                   userRolesResponse.getUserRoles().stream()
                       .map(
@@ -63,6 +67,23 @@ public class UserService {
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
     // TODO: fetch user record and map to UserDetailsDto
     return UserDetailsDto.builder().harpId(harpId).build();
+  }
+
+  /**
+   * Determines the user status based on the presence of active roles in the UserRolesResponse.
+   *
+   * @param userRolesResponse
+   * @return
+   */
+  public UserStatus getStatusForRoles(UserRolesResponse userRolesResponse) {
+    if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) {
+      return UserStatus.DEACTIVATED;
+    }
+    String programName = harpConfig.getProgramName();
+    boolean hasActiveRole =
+        userRolesResponse.getUserRoles().stream()
+            .anyMatch(role -> programName.equals(role.getProgramName()));
+    return hasActiveRole ? UserStatus.ACTIVE : UserStatus.DEACTIVATED;
   }
 
   /**

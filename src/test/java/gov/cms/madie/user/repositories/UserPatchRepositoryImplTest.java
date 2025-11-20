@@ -2,7 +2,7 @@ package gov.cms.madie.user.repositories;
 
 import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
-import org.junit.jupiter.api.DisplayName;
+import gov.cms.madie.models.access.UserStatus;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -31,7 +31,6 @@ class UserPatchRepositoryImplTest {
   @InjectMocks UserPatchRepositoryImpl repository;
 
   @Test
-  @DisplayName("should upsert user with all fields set")
   void upsertsUserWithAllFieldsSet() {
     // given
     MadieUser user =
@@ -42,6 +41,7 @@ class UserPatchRepositoryImplTest {
                     HarpRole.builder().role("role1").roleType("type1").build(),
                     HarpRole.builder().role("role2").roleType("type2").build()))
             .accessStartAt(Instant.parse("2023-01-01T00:00:00Z"))
+            .status(UserStatus.ACTIVE)
             .build();
     MadieUser expected = MadieUser.builder().harpId("harp123").build();
     when(mongoTemplate.findAndModify(
@@ -62,16 +62,13 @@ class UserPatchRepositoryImplTest {
             any(FindAndModifyOptions.class),
             eq(MadieUser.class));
     Update update = updateCaptor.getValue();
-    assertThat(
-        "Update should set roles", update.getUpdateObject().toString(), containsString("roles"));
-    assertThat(
-        "Update should set accessStartAt",
-        update.getUpdateObject().toString(),
-        containsString("accessStartAt"));
+    String updateStr = update.getUpdateObject().toString();
+    assertThat("Update should set roles", updateStr, containsString("roles"));
+    assertThat("Update should set accessStartAt", updateStr, containsString("accessStartAt"));
+    assertThat("Update should set status", updateStr, containsString("status"));
   }
 
   @Test
-  @DisplayName("should unset roles if roles is null")
   void unsetsRolesIfNull() {
     // given
     MadieUser user =
@@ -105,7 +102,6 @@ class UserPatchRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("should unset accessStartAt if accessStartAt is null")
   void unsetsAccessStartAtIfNull() {
     // given
     MadieUser user =
@@ -140,7 +136,6 @@ class UserPatchRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("should unset both roles and accessStartAt if both are null")
   void unsetsBothFieldsIfNull() {
     // given
     MadieUser user =
@@ -171,7 +166,6 @@ class UserPatchRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("should throw NullPointerException if harpId is null")
   void throwsExceptionIfHarpIdIsNull() {
     // given
     MadieUser user = MadieUser.builder().harpId(null).build();
@@ -180,7 +174,6 @@ class UserPatchRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("should set lastModifiedAt, lastLoginAt, and createdAt on upsert")
   void setsAuditFieldsOnUpsert() {
     // given
     MadieUser user =
@@ -211,7 +204,6 @@ class UserPatchRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("should use upsert and returnNew options in findAndModify")
   void usesUpsertAndReturnNewOptions() {
     // given
     MadieUser user = MadieUser.builder().harpId("opt123").build();
@@ -233,5 +225,33 @@ class UserPatchRepositoryImplTest {
     FindAndModifyOptions options = optionsCaptor.getValue();
     assertThat("Options should be upsert", options.isUpsert(), is(true));
     assertThat("Options should return new", options.isReturnNew(), is(true));
+  }
+
+  @Test
+  void loginUserConvertsHarpIdToLowercaseInQuery() {
+    // given
+    String mixedCaseHarpId = "HaRp123ABC";
+    MadieUser user = MadieUser.builder().harpId(mixedCaseHarpId).build();
+    MadieUser expected = MadieUser.builder().harpId(mixedCaseHarpId.toLowerCase()).build();
+    ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+    when(mongoTemplate.findAndModify(
+            any(Query.class),
+            any(Update.class),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class)))
+        .thenReturn(expected);
+    // when
+    repository.loginUser(user);
+    // then
+    verify(mongoTemplate)
+        .findAndModify(
+            queryCaptor.capture(),
+            any(Update.class),
+            any(FindAndModifyOptions.class),
+            eq(MadieUser.class));
+    Query capturedQuery = queryCaptor.getValue();
+    Object harpIdValue = capturedQuery.getQueryObject().get("harpId");
+    assertThat(
+        "harpId in query should be lowercase", harpIdValue, is(mixedCaseHarpId.toLowerCase()));
   }
 }
