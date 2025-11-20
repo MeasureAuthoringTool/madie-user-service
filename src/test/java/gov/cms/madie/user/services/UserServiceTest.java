@@ -137,12 +137,12 @@ class UserServiceTest {
   void getUserDetailsByHarpIdReturnsDetails() {
     String harpId = "detail123";
     MadieUser user =
-      MadieUser.builder()
-        .harpId(harpId)
-        .email("user@example.com")
-        .firstName("Jane")
-        .lastName("Smith")
-        .build();
+        MadieUser.builder()
+            .harpId(harpId)
+            .email("user@example.com")
+            .firstName("Jane")
+            .lastName("Smith")
+            .build();
     when(madieUserRepository.findByHarpId(harpId)).thenReturn(Optional.of(user));
 
     UserDetailsDto details = userService.getUserDetailsByHarpId(harpId);
