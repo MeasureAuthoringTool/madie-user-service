@@ -258,8 +258,8 @@ class UserPatchRepositoryImplTest {
   @Test
   void loginUserWithAllFieldsNullExceptHarpIdUnsetsAllOptionalFields() {
     // given
-    MadieUser user = MadieUser.builder().harpId("nullfields").build();
-    MadieUser expected = MadieUser.builder().harpId("nullfields").build();
+    MadieUser user = MadieUser.builder().harpId("someHarpId").build();
+    MadieUser expected = MadieUser.builder().harpId("someHarpId").build();
     when(mongoTemplate.findAndModify(
             any(Query.class),
             any(Update.class),
@@ -269,6 +269,11 @@ class UserPatchRepositoryImplTest {
     // when
     MadieUser result = repository.loginUser(user);
     // then
+    assertThat(result, is(notNullValue()));
+    assertThat(result.getHarpId(), is("someHarpId"));
+    assertThat(result.getRoles(), is(empty()));
+    assertThat(result.getStatus(), is(nullValue()));
+    assertThat(result.getAccessStartAt(), is(nullValue()));
     ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
     verify(mongoTemplate)
         .findAndModify(

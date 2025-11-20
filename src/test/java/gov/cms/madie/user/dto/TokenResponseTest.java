@@ -2,6 +2,7 @@ package gov.cms.madie.user.dto;
 
 import gov.cms.madie.user.test.utils.TestRuntimeException;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.Base64;
@@ -188,14 +189,7 @@ class TokenResponseTest {
     // given
     TokenResponse token = TokenResponse.builder().accessToken("irrelevant").build();
     Instant cached = Instant.now().plusSeconds(1000);
-    // Use reflection to set private field
-    try {
-      java.lang.reflect.Field field = TokenResponse.class.getDeclaredField("expiresAt");
-      field.setAccessible(true);
-      field.set(token, cached);
-    } catch (Exception e) {
-      throw new TestRuntimeException(e);
-    }
+    ReflectionTestUtils.setField(token, "expiresAt", cached);
     // when
     Instant expiresAt = token.getExpiresAt();
     // then

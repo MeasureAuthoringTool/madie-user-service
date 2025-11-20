@@ -39,9 +39,7 @@ class TokenManagerTest {
   @Test
   void getCurrentTokenRefreshesTokenWhenTokenIsNull() throws Exception {
     // given
-    var field = TokenManager.class.getDeclaredField("currentToken");
-    field.setAccessible(true);
-    field.set(null, null);
+    ReflectionTestUtils.setField(TokenManager.class, "currentToken", null);
     // when
     TokenResponse result = tokenManager.getCurrentToken();
     // then
