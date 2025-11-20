@@ -1,6 +1,7 @@
 package gov.cms.madie.user.services;
 
 import gov.cms.madie.user.dto.TokenResponse;
+import gov.cms.madie.user.test.utils.TestRuntimeException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,7 @@ class TokenManagerTest {
       field.setAccessible(true);
       field.set(null, null);
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      throw new TestRuntimeException(e);
     }
     tokenManager = new TokenManager(harpProxyService);
   }

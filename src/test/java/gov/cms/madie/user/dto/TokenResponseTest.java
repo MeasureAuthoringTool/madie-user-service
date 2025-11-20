@@ -1,5 +1,6 @@
 package gov.cms.madie.user.dto;
 
+import gov.cms.madie.user.test.utils.TestRuntimeException;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -193,7 +194,7 @@ class TokenResponseTest {
       field.setAccessible(true);
       field.set(token, cached);
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      throw new TestRuntimeException(e);
     }
     // when
     Instant expiresAt = token.getExpiresAt();
