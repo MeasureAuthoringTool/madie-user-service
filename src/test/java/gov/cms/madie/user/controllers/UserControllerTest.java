@@ -3,10 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
-import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
-import gov.cms.madie.user.services.UpdateUserJobScheduler;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,7 +17,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,7 +28,6 @@ import static org.mockito.Mockito.*;
 class UserControllerTest {
   @Mock private UserService userService;
   @Mock private Principal principal;
-  @Mock private UpdateUserJobScheduler updateUserJobScheduler;
   @InjectMocks private UserController userController;
 
   @BeforeEach
@@ -149,24 +144,6 @@ class UserControllerTest {
     // then
     assertThat(response.getStatusCode().value(), is(200));
     assertThat(response.getBody(), is("User report coming soon"));
-  }
-
-  @Test
-  void refreshAllUsersReturnsAccepted() {
-    // given
-    UserUpdatesJobResultDto resultsDto =
-        UserUpdatesJobResultDto.builder()
-            .failedHarpIds(List.of("John"))
-            .updatedHarpIds(List.of("Bob"))
-            .build();
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(resultsDto);
-    // when
-    ResponseEntity<UserUpdatesJobResultDto> response = userController.refreshAllUsers(principal);
-    // then
-    assertThat(response.getStatusCode().value(), is(200));
-    Assertions.assertNotNull(response.getBody());
-    assertThat(response.getBody().getFailedHarpIds(), is(resultsDto.getFailedHarpIds()));
-    assertThat(response.getBody().getUpdatedHarpIds(), is(resultsDto.getUpdatedHarpIds()));
   }
 
   @Test

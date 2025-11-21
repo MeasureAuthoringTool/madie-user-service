@@ -1,9 +1,9 @@
 package gov.cms.madie.user.controllers;
 
+import gov.cms.madie.models.access.HarpRole;
+import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.user.config.SecurityConfig;
-import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
-import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -14,13 +14,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest({UserController.class})
@@ -31,180 +30,32 @@ public class UserControllerMvcTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private UserService userService;
-  @MockitoBean private UpdateUserJobScheduler updateUserJobScheduler;
 
   @Test
   @WithMockUser(username = "testuser")
-  void refreshAllUsersSuccessfullyTriggersUpdateJob() throws Exception {
+  void getUserByHarpIdSuccessfully() throws Exception {
     // Given
-    List<String> updatedIds = new ArrayList<>(List.of("user1", "user2", "user3"));
-    List<String> failedIds = new ArrayList<>(List.of("user4"));
-
-    UserUpdatesJobResultDto results =
-        UserUpdatesJobResultDto.builder()
-            .updatedHarpIds(updatedIds)
-            .failedHarpIds(failedIds)
+    String harpId = "harper";
+    MadieUser user =
+        MadieUser.builder()
+            .harpId(harpId)
+            .firstName("John")
+            .lastName("Doe")
+            .roles(List.of(HarpRole.builder().role("Admin").roleType("ADMIN").build()))
             .build();
-
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
+    when(userService.getUserByHarpId(harpId)).thenReturn(user);
 
     // When & Then
     mockMvc
-        .perform(
-            put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
+        .perform(get("/users/" + harpId).with(csrf()).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.updatedHarpIds", hasSize(3)))
-        .andExpect(jsonPath("$.updatedHarpIds[0]", is("user1")))
-        .andExpect(jsonPath("$.updatedHarpIds[1]", is("user2")))
-        .andExpect(jsonPath("$.updatedHarpIds[2]", is("user3")))
-        .andExpect(jsonPath("$.failedHarpIds", hasSize(1)))
-        .andExpect(jsonPath("$.failedHarpIds[0]", is("user4")));
+        .andExpect(jsonPath("$.harpId", is(harpId)))
+        .andExpect(jsonPath("$.firstName", is("John")))
+        .andExpect(jsonPath("$.lastName", is("Doe")))
+        .andExpect(jsonPath("$.roles[0].roleType", is("ADMIN")))
+        .andExpect(jsonPath("$.roles[0].role", is("Admin")));
 
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
-  }
-
-  @Test
-  @WithMockUser(username = "testuser")
-  void refreshAllUsersReturnsEmptyResultsWhenNoUsers() throws Exception {
-    // Given
-    UserUpdatesJobResultDto emptyResults =
-        UserUpdatesJobResultDto.builder()
-            .updatedHarpIds(new ArrayList<>())
-            .failedHarpIds(new ArrayList<>())
-            .build();
-
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(emptyResults);
-
-    // When & Then
-    mockMvc
-        .perform(
-            put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.updatedHarpIds", hasSize(0)))
-        .andExpect(jsonPath("$.failedHarpIds", hasSize(0)));
-
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
-  }
-
-  @Test
-  @WithMockUser(username = "testuser")
-  void refreshAllUsersHandlesAllUpdatedScenario() throws Exception {
-    // Given - all users successfully updated
-    List<String> updatedIds = new ArrayList<>(List.of("user1", "user2", "user3", "user4", "user5"));
-
-    UserUpdatesJobResultDto results =
-        UserUpdatesJobResultDto.builder()
-            .updatedHarpIds(updatedIds)
-            .failedHarpIds(new ArrayList<>())
-            .build();
-
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
-
-    // When & Then
-    mockMvc
-        .perform(
-            put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.updatedHarpIds", hasSize(5)))
-        .andExpect(jsonPath("$.failedHarpIds", empty()));
-
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
-  }
-
-  @Test
-  @WithMockUser(username = "testuser")
-  void refreshAllUsersHandlesAllFailedScenario() throws Exception {
-    // Given - all users failed
-    List<String> failedIds = new ArrayList<>(List.of("user1", "user2", "user3"));
-
-    UserUpdatesJobResultDto results =
-        UserUpdatesJobResultDto.builder()
-            .updatedHarpIds(new ArrayList<>())
-            .failedHarpIds(failedIds)
-            .build();
-
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
-
-    // When & Then
-    mockMvc
-        .perform(
-            put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.updatedHarpIds", empty()))
-        .andExpect(jsonPath("$.failedHarpIds", hasSize(3)));
-
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
-  }
-
-  @Test
-  @WithMockUser(username = "testuser")
-  void refreshAllUsersHandlesMixedResults() throws Exception {
-    // Given - mixed results with some of each
-    UserUpdatesJobResultDto results =
-        UserUpdatesJobResultDto.builder()
-            .updatedHarpIds(new ArrayList<>(List.of("updated1", "updated2")))
-            .failedHarpIds(new ArrayList<>(List.of("failed1")))
-            .build();
-
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
-
-    // When & Then
-    mockMvc
-        .perform(
-            put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.updatedHarpIds", hasSize(2)))
-        .andExpect(jsonPath("$.failedHarpIds", hasSize(1)));
-
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
-  }
-
-  @Test
-  void refreshAllUsersRequiresAuthentication() throws Exception {
-    // When & Then - no authentication
-    mockMvc
-        .perform(
-            put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isUnauthorized());
-
-    verify(updateUserJobScheduler, never()).triggerUpdateUserJobManually();
-  }
-
-  @Test
-  @WithMockUser(username = "testuser")
-  void refreshAllUsersRequiresCsrfToken() throws Exception {
-    // When & Then - no CSRF token
-    mockMvc
-        .perform(put("/users/all-users-refresh").contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isForbidden());
-
-    verify(updateUserJobScheduler, never()).triggerUpdateUserJobManually();
-  }
-
-  @Test
-  @WithMockUser(username = "adminuser")
-  void refreshAllUsersWorksForDifferentUsers() throws Exception {
-    // Given
-    UserUpdatesJobResultDto results =
-        UserUpdatesJobResultDto.builder()
-            .updatedHarpIds(new ArrayList<>(List.of("user1")))
-            .failedHarpIds(new ArrayList<>())
-            .build();
-
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
-
-    // When & Then
-    mockMvc
-        .perform(
-            put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.updatedHarpIds", hasSize(1)));
-
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
+    verify(userService, times(1)).getUserByHarpId(harpId);
   }
 }

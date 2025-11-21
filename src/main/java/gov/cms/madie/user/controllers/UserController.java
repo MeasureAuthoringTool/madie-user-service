@@ -3,9 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
-import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
-import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +25,6 @@ public class UserController {
   private String harpOverrideTestId;
 
   @Autowired private UserService userService;
-  @Autowired private UpdateUserJobScheduler updateUserJobScheduler;
 
   @GetMapping("/{harpId}")
   public ResponseEntity<MadieUser> getUser(@PathVariable String harpId, Principal principal) {
@@ -59,12 +56,6 @@ public class UserController {
     // Generate user activity report based on days, based on more recent of lastLoginAt or
     // accessStartAt
     return ResponseEntity.ok("User report coming soon");
-  }
-
-  @PutMapping("/all-users-refresh")
-  public ResponseEntity<UserUpdatesJobResultDto> refreshAllUsers(Principal principal) {
-    log.info("User [{}] - Kicked off refresh job", principal.getName());
-    return ResponseEntity.ok().body(updateUserJobScheduler.triggerUpdateUserJobManually());
   }
 
   @GetMapping("/{harpId}/details")
