@@ -66,7 +66,8 @@ class UpdateUserJobSchedulerTest {
               return harpIds.contains("H3") ? secondBatchResult : firstBatchResult;
             });
 
-    UserUpdatesJobResultDto actualResults = updateUserJobScheduler.triggerUpdateUsersJobManually();
+    UserUpdatesJobResultDto actualResults =
+        updateUserJobScheduler.triggerUpdateUsersJobManually(null);
 
     ArgumentCaptor<List<String>> harpIdsCaptor = ArgumentCaptor.forClass(List.class);
     verify(userService, times(2)).updateUsersFromHarp(harpIdsCaptor.capture());
@@ -79,11 +80,29 @@ class UpdateUserJobSchedulerTest {
   }
 
   @Test
+  void testUpdateUsersForHarpIdsFromHarp() {
+    List<String> harpIds = List.of("H1", "H2", "H3");
+    UserUpdatesJobResultDto resultDto =
+        UserUpdatesJobResultDto.builder()
+            .updatedHarpIds(new ArrayList<>(List.of("H1", "H3")))
+            .failedHarpIds(new ArrayList<>(List.of("H2")))
+            .build();
+    when(userService.updateUsersFromHarp(anyList())).thenReturn(resultDto);
+
+    UserUpdatesJobResultDto actualResults =
+        updateUserJobScheduler.triggerUpdateUsersJobManually(harpIds);
+
+    assertThat(actualResults.getUpdatedHarpIds(), contains("H1", "H3"));
+    assertThat(actualResults.getFailedHarpIds(), contains("H2"));
+  }
+
+  @Test
   void testUpdateAllUsersFromHarpWhenNoMadieUsersFound() {
     Page<MadieUser> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 50), 0);
     when(userRepository.findAllHarpIds(any(Pageable.class))).thenReturn(emptyPage);
 
-    UserUpdatesJobResultDto actualResults = updateUserJobScheduler.triggerUpdateUsersJobManually();
+    UserUpdatesJobResultDto actualResults =
+        updateUserJobScheduler.triggerUpdateUsersJobManually(null);
 
     assertThat(actualResults.getUpdatedHarpIds(), empty());
     assertThat(actualResults.getFailedHarpIds(), empty());
@@ -95,12 +114,12 @@ class UpdateUserJobSchedulerTest {
     UpdateUserJobScheduler schedulerSpy =
         spy(new UpdateUserJobScheduler(userRepository, userService));
     UserUpdatesJobResultDto expectedResult = UserUpdatesJobResultDto.builder().build();
-    doReturn(expectedResult).when(schedulerSpy).triggerUpdateUsersJobManually();
+    doReturn(expectedResult).when(schedulerSpy).triggerUpdateUsersJobManually(null);
 
-    UserUpdatesJobResultDto actualResults = schedulerSpy.triggerUpdateUsersJobManually();
+    UserUpdatesJobResultDto actualResults = schedulerSpy.triggerUpdateUsersJobManually(null);
 
     assertThat(actualResults, is(expectedResult));
-    verify(schedulerSpy).triggerUpdateUsersJobManually();
+    verify(schedulerSpy).triggerUpdateUsersJobManually(null);
   }
 
   private MadieUser madieUser(String harpId) {

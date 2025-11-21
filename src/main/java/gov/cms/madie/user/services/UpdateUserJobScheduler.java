@@ -82,10 +82,16 @@ public class UpdateUserJobScheduler {
   }
 
   /** update job manual trigger */
-  public UserUpdatesJobResultDto triggerUpdateUsersJobManually() {
+  public UserUpdatesJobResultDto triggerUpdateUsersJobManually(List<String> harpIds) {
     log.info("Manual user update triggered...");
-    UserUpdatesJobResultDto jobResultsDto = triggerUpdateUsersJob();
+    UserUpdatesJobResultDto jobResults;
+    // if no harpIds provided, update all users
+    if (CollectionUtils.isEmpty(harpIds)) {
+      jobResults = triggerUpdateUsersJob();
+    } else {
+      jobResults = userService.updateUsersFromHarp(harpIds);
+    }
     log.info("Manual user update completed");
-    return jobResultsDto;
+    return jobResults;
   }
 }

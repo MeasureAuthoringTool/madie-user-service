@@ -32,6 +32,7 @@ public class AdminControllerMvcTest {
 
   @MockitoBean private UserService userService;
   @MockitoBean private UpdateUserJobScheduler updateUserJobScheduler;
+  private static final String ADMIN_TEST_API_KEY = "0a51991c";
 
   @Test
   @WithMockUser(username = "admin")
@@ -42,10 +43,14 @@ public class AdminControllerMvcTest {
             .failedHarpIds(new ArrayList<>(List.of("user4", "user5")))
             .build();
 
-    when(updateUserJobScheduler.triggerUpdateUsersJobManually()).thenReturn(results);
+    when(updateUserJobScheduler.triggerUpdateUsersJobManually(null)).thenReturn(results);
 
     mockMvc
-        .perform(put("/admin/users/refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
+        .perform(
+            put("/admin/users/refresh")
+                .with(csrf())
+                .header("api-key", ADMIN_TEST_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$.updatedHarpIds", hasSize(3)))
@@ -56,25 +61,32 @@ public class AdminControllerMvcTest {
         .andExpect(jsonPath("$.failedHarpIds[0]", is("user4")))
         .andExpect(jsonPath("$.failedHarpIds[1]", is("user5")));
 
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUsersJobManually();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUsersJobManually(null);
   }
 
   @Test
   void refreshAllUsersRequiresAuthentication() throws Exception {
     mockMvc
-        .perform(put("/admin/users/refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
+        .perform(
+            put("/admin/users/refresh")
+                .with(csrf())
+                .header("api-key", ADMIN_TEST_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isUnauthorized());
 
-    verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually();
+    verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually(null);
   }
 
   @Test
   @WithMockUser(username = "admin")
   void refreshAllUsersRequiresCsrfToken() throws Exception {
     mockMvc
-        .perform(put("/admin/users/refresh").contentType(MediaType.APPLICATION_JSON))
+        .perform(
+            put("/admin/users/refresh")
+                .header("api-key", ADMIN_TEST_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isForbidden());
 
-    verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually();
+    verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually(null);
   }
 }

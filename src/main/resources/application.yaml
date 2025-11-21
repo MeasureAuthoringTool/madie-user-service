@@ -4,7 +4,7 @@ spring:
   data:
     mongodb:
       database: ${MONGO_DATABASE:user}
-      uri: mongodb://localhost:27017/user?authSource=admin&maxPoolSize=50&connectTimeoutMS=2000&serverSelectionTimeoutMS=2000
+      uri: ${MONGO_URI:mongodb://${DBUSER}:${DBPASS}@localhost:27017/user}?authSource=admin&maxPoolSize=50&connectTimeoutMS=2000&serverSelectionTimeoutMS=2000
       auto-index-creation: true
 
 server:
@@ -34,6 +34,8 @@ user:
     # Format: second minute hour day-of-month month day-of-week
     # Example: "0 0 */10 * * *" => at 00:00, 10:00, 20:00 every day
     cron-expression: ${USER_UPDATE_CRON:0 0 */10 * * *}
+
+admin-api-key: ${ADMIN_API_KEY:0a51991c}
 
 harp:
   base-url: ${HARP_BASE_URL:https://test.harp.cms.gov}
