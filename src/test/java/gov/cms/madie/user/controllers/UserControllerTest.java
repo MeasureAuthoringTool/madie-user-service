@@ -96,15 +96,14 @@ class UserControllerTest {
     ReflectionTestUtils.setField(userController, "harpOverrideTestId", null);
     when(principal.getName()).thenReturn("principalId");
     // when & then
-    ResponseStatusException exception = assertThrows(
-      ResponseStatusException.class,
-      () -> userController.updateUser("differentId", principal)
-    );
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () -> userController.updateUser("differentId", principal));
     assertThat(exception.getStatusCode(), is(HttpStatus.FORBIDDEN));
     assertThat(
-      exception.getReason(),
-      containsString("User [principalId] attempted to update user [differentId] - not allowed")
-    );
+        exception.getReason(),
+        containsString("User [principalId] attempted to update user [differentId] - not allowed"));
   }
 
   @Test
@@ -128,15 +127,14 @@ class UserControllerTest {
     ReflectionTestUtils.setField(userController, "harpOverrideTestId", "");
     when(principal.getName()).thenReturn("principalId");
     // when & then
-    ResponseStatusException exception = assertThrows(
-      ResponseStatusException.class,
-      () -> userController.updateUser("differentId", principal)
-    );
+    ResponseStatusException exception =
+        assertThrows(
+            ResponseStatusException.class,
+            () -> userController.updateUser("differentId", principal));
     assertThat(exception.getStatusCode(), is(HttpStatus.FORBIDDEN));
     assertThat(
-      exception.getReason(),
-      containsString("User [principalId] attempted to update user [differentId] - not allowed")
-    );
+        exception.getReason(),
+        containsString("User [principalId] attempted to update user [differentId] - not allowed"));
   }
 
   @Test
@@ -146,15 +144,6 @@ class UserControllerTest {
     // then
     assertThat(response.getStatusCode().value(), is(200));
     assertThat(response.getBody(), is("User report coming soon"));
-  }
-
-  @Test
-  void refreshAllUsersReturnsAccepted() {
-    // when
-    ResponseEntity<Object> response = userController.refreshAllUsers(principal);
-    // then
-    assertThat(response.getStatusCode().value(), is(202));
-    assertThat(response.getBody(), is("User refresh job accepted"));
   }
 
   @Test

@@ -1,8 +1,10 @@
 package gov.cms.madie.user.dto;
 
+import lombok.Builder;
 import lombok.Data;
 
 @Data
+@Builder
 public class UserDetail {
   private String country;
   private String firstname;

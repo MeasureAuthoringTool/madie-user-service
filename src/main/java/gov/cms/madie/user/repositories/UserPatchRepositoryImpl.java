@@ -1,5 +1,6 @@
 package gov.cms.madie.user.repositories;
 
+import com.mongodb.client.result.UpdateResult;
 import gov.cms.madie.models.access.MadieUser;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.util.CollectionUtils;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
@@ -56,5 +58,18 @@ public class UserPatchRepositoryImpl implements UserPatchRepository {
 
     FindAndModifyOptions options = FindAndModifyOptions.options().upsert(true).returnNew(true);
     return mongoTemplate.findAndModify(query, update, options, MadieUser.class);
+  }
+
+  @Override
+  public UpdateResult updateMadieUser(Map<String, Object> updates, String harpId) {
+    if (CollectionUtils.isEmpty(updates)) {
+      return UpdateResult.unacknowledged();
+    }
+
+    Query query = Query.query(Criteria.where("harpId").is(harpId));
+    Update update = new Update();
+    updates.forEach(update::set);
+
+    return mongoTemplate.updateFirst(query, update, MadieUser.class);
   }
 }

@@ -23,9 +23,19 @@ management:
 
 logging:
   level:
-    root: ${LOG_LEVEL:DEBUG}
+    root: ${LOG_LEVEL:INFO}
   pattern:
     console: "%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] %mdc %-5level %logger{36}.%M - %msg%n"
+
+# User update job scheduler configuration
+user:
+  update:
+    # Cron expression: run every 10 hours (at minute 0)
+    # Format: second minute hour day-of-month month day-of-week
+    # Example: "0 0 */10 * * *" => at 00:00, 10:00, 20:00 every day
+    cron-expression: ${USER_UPDATE_CRON:0 0 */10 * * *}
+
+admin-api-key: ${ADMIN_API_KEY:0a51991c}
 
 harp:
   base-url: ${HARP_BASE_URL:https://test.harp.cms.gov}
@@ -42,8 +52,6 @@ harp:
     uri: /userFindApi
   test:
     override-id: ${HARP_LOCAL_OVERRIDE_ID:}
-
-
 
 okta:
   oauth2:

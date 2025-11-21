@@ -1,15 +1,20 @@
 package gov.cms.madie.user.services;
 
+import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
+import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.config.HarpConfig;
 import gov.cms.madie.user.dto.TokenResponse;
 import gov.cms.madie.user.dto.UserRole;
 import gov.cms.madie.user.dto.UserRolesResponse;
 import gov.cms.madie.user.repositories.UserRepository;
+import gov.cms.madie.user.dto.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,9 +22,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.util.List;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
+
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -30,14 +42,35 @@ class UserServiceTest {
   @Mock HarpConfig harpConfig;
   @InjectMocks private UserService userService;
 
+  private TokenResponse tokenResponse;
+
+  @BeforeEach
+  void setUp() {
+    tokenResponse = TokenResponse.builder().accessToken("test-token").build();
+  }
+
   @Test
-  void getUserByHarpIdReturnsMadieUser() {
-    // given
-    String harpId = "aaa111";
-    // when
-    MadieUser user = userService.getUserByHarpId(harpId);
-    // then
-    assertThat(user.getHarpId(), is(harpId));
+  void getUserByHarpIdReturnsExistingUser() {
+    MadieUser existing = createExistingUser();
+    when(userRepository.findByHarpId(existing.getHarpId())).thenReturn(Optional.of(existing));
+
+    MadieUser actual = userService.getUserByHarpId(existing.getHarpId());
+
+    assertThat(actual, is(existing));
+    assertThat(actual.getEmail(), is(existing.getEmail()));
+    verify(userRepository).findByHarpId(existing.getHarpId());
+  }
+
+  @Test
+  void getUserByHarpIdReturnsNewUserWhenNotFound() {
+    String harpId = "missing123";
+    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.empty());
+
+    MadieUser actual = userService.getUserByHarpId(harpId);
+
+    assertThat(actual.getHarpId(), is(harpId));
+    assertNull(actual.getEmail());
+    verify(userRepository).findByHarpId(harpId);
   }
 
   @Test
@@ -90,13 +123,235 @@ class UserServiceTest {
   }
 
   @Test
-  void getUserDetailsByHarpIdReturnsUserDetailsDto() {
-    // given
-    String harpId = "ccc333";
-    // when
+  void getUserDetailsByHarpIdReturnsDetails() {
+    String harpId = "detail123";
+    MadieUser user =
+        MadieUser.builder()
+            .harpId(harpId)
+            .email("user@example.com")
+            .firstName("Jane")
+            .lastName("Smith")
+            .build();
+    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.of(user));
+
     UserDetailsDto details = userService.getUserDetailsByHarpId(harpId);
-    // then
+
     assertThat(details.getHarpId(), is(harpId));
+    assertThat(details.getEmail(), is("user@example.com"));
+    assertThat(details.getFirstName(), is("Jane"));
+    assertThat(details.getLastName(), is("Smith"));
+  }
+
+  @Test
+  void getUserDetailsByHarpIdReturnsEmptyDetailsWhenNotFound() {
+    String harpId = "notfound";
+    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.empty());
+
+    UserDetailsDto details = userService.getUserDetailsByHarpId(harpId);
+
+    assertThat(details.getHarpId(), is(harpId));
+    assertNull(details.getEmail());
+  }
+
+  @Test
+  void updateUsersFromHarpReturnsEmptyWhenNoIdsProvided() {
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(Collections.emptyList());
+
+    assertThat(results.getUpdatedHarpIds(), empty());
+    assertThat(results.getFailedHarpIds(), empty());
+    verifyNoInteractions(tokenManager);
+    verifyNoInteractions(userRepository);
+  }
+
+  @Test
+  void updateUsersFromHarpReturnsEmptyWhenNullIdsProvided() {
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(null);
+
+    assertThat(results.getUpdatedHarpIds(), empty());
+    assertThat(results.getFailedHarpIds(), empty());
+    verifyNoInteractions(tokenManager);
+  }
+
+  @Test
+  void updateUsersFromHarpHandlesTokenRetrievalFailure() {
+    List<String> harpIds = List.of("user1", "user2");
+    when(tokenManager.getCurrentToken()).thenThrow(new RuntimeException("Token error"));
+
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+
+    assertThat(results.getUpdatedHarpIds(), empty());
+    assertThat(results.getFailedHarpIds(), empty());
+    verify(tokenManager).getCurrentToken();
+    verifyNoInteractions(userRepository);
+  }
+
+  @Test
+  void updateUsersFromHarpHandlesUserDetailsFetchFailure() {
+    List<String> harpIds = List.of("user1", "user2");
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpProxyService.fetchUserDetails(eq(harpIds), anyString()))
+        .thenThrow(new RuntimeException("Fetch error"));
+
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+
+    assertThat(results.getUpdatedHarpIds(), empty());
+    assertThat(results.getFailedHarpIds(), containsInAnyOrder("user1", "user2"));
+    verify(userRepository, never()).updateMadieUser(anyMap(), anyString());
+  }
+
+  @Test
+  void updateUsersFromHarpSuccessfully() {
+    List<String> harpIds = List.of("harper");
+    UserDetailsResponse detailsResponse =
+        createUserDetailsResponse("harper", "harper@example.com", "Harper", "Lees");
+    UserRolesResponse rolesResponse = createUserRolesResponse("active", "Admin", "ADMIN");
+    MadieUser existingUser = createExistingUser();
+
+    setupMocksForSuccessfulUpdate(harpIds, detailsResponse, rolesResponse, existingUser);
+
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+
+    assertThat(results.getUpdatedHarpIds(), hasItem("harper"));
+    assertThat(results.getFailedHarpIds(), empty());
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, Object>> updatesCaptor = ArgumentCaptor.forClass(Map.class);
+    verify(userRepository).updateMadieUser(updatesCaptor.capture(), eq("harper"));
+
+    Map<String, Object> updates = updatesCaptor.getValue();
+    assertThat(updates.get("email"), is("harper@example.com"));
+    assertThat(updates.get("firstName"), is("Harper"));
+    assertThat(updates.get("lastName"), is("Lees"));
+    assertThat(updates.get("status"), is(UserStatus.ACTIVE));
+
+    @SuppressWarnings("unchecked")
+    List<HarpRole> roles = (List<HarpRole>) updates.get("roles");
+    assertThat(roles.get(0).getRole(), is("Admin"));
+  }
+
+  @Test
+  void updateUsersFromHarpHandlesNoUserDetailsReturned() {
+    List<String> harpIds = List.of("user1");
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(null);
+
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+
+    assertThat(results.getUpdatedHarpIds(), empty());
+    assertThat(results.getFailedHarpIds(), empty());
+    verify(userRepository, never()).updateMadieUser(anyMap(), anyString());
+  }
+
+  @Test
+  void updateUsersFromHarpHandlesEmptyUserDetailsResponse() {
+    List<String> harpIds = List.of("user1");
+    UserDetailsResponse emptyResponse = new UserDetailsResponse();
+    emptyResponse.setUserdetails(Collections.emptyList());
+
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(emptyResponse);
+
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+
+    assertThat(results.getUpdatedHarpIds(), empty());
+    verify(userRepository, never()).updateMadieUser(anyMap(), anyString());
+  }
+
+  @Test
+  void updateUsersFromHarpMarksFailedWhenIndividualUpdateThrows() {
+    List<String> harpIds = List.of("harper");
+
+    UserDetail detail =
+        UserDetail.builder()
+            .username("harper")
+            .email("test@example.com")
+            .firstname("Test")
+            .lastname("User")
+            .displayname("Test User")
+            .createdate("2025-10-29 13:48:37")
+            .updatedate("2025-10-29 13:48:37")
+            .build();
+    UserDetailsResponse detailsResponse = new UserDetailsResponse();
+    detailsResponse.setUserdetails(List.of(detail));
+
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
+    when(harpProxyService.fetchUserRoles(eq("harper"), anyString()))
+        .thenThrow(new RuntimeException("Role fetch failed"));
+
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+
+    assertThat(results.getUpdatedHarpIds(), empty());
+    assertThat(results.getFailedHarpIds(), hasItem("harper"));
+  }
+
+  @Test
+  void updateUsersFromHarpDeactivatesUserWithNoActiveRoles() {
+    List<String> harpIds = List.of("inactive");
+
+    UserDetail detail =
+        UserDetail.builder()
+            .username("inactive")
+            .email("inactive@example.com")
+            .firstname("Inactive")
+            .lastname("User")
+            .displayname("Inactive User")
+            .createdate("2025-10-29 13:48:37")
+            .updatedate("2025-10-29 13:48:37")
+            .build();
+    UserDetailsResponse detailsResponse = new UserDetailsResponse();
+    detailsResponse.setUserdetails(List.of(detail));
+
+    UserRolesResponse rolesResponse = new UserRolesResponse();
+    rolesResponse.setUserRoles(Collections.emptyList());
+
+    MadieUser existingUser =
+        MadieUser.builder()
+            .harpId("inactive")
+            .status(UserStatus.ACTIVE)
+            .roles(List.of(HarpRole.builder().role("OldRole").build()))
+            .build();
+
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
+    when(harpProxyService.fetchUserRoles(eq("inactive"), anyString())).thenReturn(rolesResponse);
+    when(userRepository.findByHarpId("inactive")).thenReturn(Optional.of(existingUser));
+
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+
+    assertThat(results.getUpdatedHarpIds(), hasItem("inactive"));
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, Object>> updatesCaptor = ArgumentCaptor.forClass(Map.class);
+    verify(userRepository).updateMadieUser(updatesCaptor.capture(), eq("inactive"));
+
+    Map<String, Object> updates = updatesCaptor.getValue();
+    assertThat(updates.get("status"), is(UserStatus.DEACTIVATED));
+    assertThat((List<?>) updates.get("roles"), empty());
+  }
+
+  @Test
+  void updateUsersFromHarpAddsNewRolesToExistingUser() {
+    List<String> harpIds = List.of("user");
+    UserDetailsResponse detailsResponse =
+        createUserDetailsResponse("user", "user@example.com", "Test", "User");
+    UserRolesResponse rolesResponse =
+        createMultiRoleResponse(List.of("Role1", "Role2"), List.of("TYPE1", "TYPE2"));
+    MadieUser existingUser = createUserWithRole();
+
+    setupMocksForSuccessfulUpdate(harpIds, detailsResponse, rolesResponse, existingUser);
+
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+
+    assertThat(results.getUpdatedHarpIds(), hasItem("user"));
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, Object>> updatesCaptor = ArgumentCaptor.forClass(Map.class);
+    verify(userRepository).updateMadieUser(updatesCaptor.capture(), eq("user"));
+
+    Map<String, Object> updates = updatesCaptor.getValue();
+    @SuppressWarnings("unchecked")
+    List<HarpRole> updatedRoles = (List<HarpRole>) updates.get("roles");
+    assertThat(updatedRoles, hasSize(2));
   }
 
   @Test
@@ -237,5 +492,91 @@ class UserServiceTest {
         "Status should be DEACTIVATED when userRoles is null",
         status,
         is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+  }
+
+  // Helper methods for test setup
+
+  private UserDetailsResponse createUserDetailsResponse(
+      String username, String email, String firstName, String lastName) {
+    UserDetail detail =
+        UserDetail.builder()
+            .username(username)
+            .email(email)
+            .firstname(firstName)
+            .lastname(lastName)
+            .displayname(firstName + " " + lastName)
+            .createdate("2025-10-29 13:48:37")
+            .updatedate("2025-11-15 10:30:00")
+            .build();
+    UserDetailsResponse response = new UserDetailsResponse();
+    response.setUserdetails(List.of(detail));
+    return response;
+  }
+
+  private UserRolesResponse createUserRolesResponse(
+      String status, String displayName, String roleType) {
+    UserRole userRole =
+        UserRole.builder()
+            .programName("MADiE")
+            .status(status)
+            .displayName(displayName)
+            .roleType(roleType)
+            .build();
+    UserRolesResponse response = new UserRolesResponse();
+    response.setUserRoles(List.of(userRole));
+    return response;
+  }
+
+  private UserRolesResponse createMultiRoleResponse(
+      List<String> displayNames, List<String> roleTypes) {
+    List<UserRole> roles = new ArrayList<>();
+    for (int i = 0; i < displayNames.size(); i++) {
+      roles.add(
+          UserRole.builder()
+              .programName("MADiE")
+              .status("active")
+              .displayName(displayNames.get(i))
+              .roleType(roleTypes.get(i))
+              .build());
+    }
+    UserRolesResponse response = new UserRolesResponse();
+    response.setUserRoles(roles);
+    return response;
+  }
+
+  private MadieUser createExistingUser() {
+    return MadieUser.builder()
+        .harpId("harper")
+        .email("old@example.com")
+        .firstName("Old")
+        .lastName("Name")
+        .roles(new ArrayList<>())
+        .status(UserStatus.DEACTIVATED)
+        .build();
+  }
+
+  private MadieUser createUserWithRole() {
+    HarpRole existingRole = HarpRole.builder().role("Role1").roleType("TYPE1").build();
+    return MadieUser.builder()
+        .harpId("user")
+        .email("user@example.com")
+        .firstName("Test")
+        .lastName("User")
+        .displayName("Test" + " " + "User")
+        .status(UserStatus.ACTIVE)
+        .roles(new ArrayList<>(List.of(existingRole)))
+        .build();
+  }
+
+  private void setupMocksForSuccessfulUpdate(
+      List<String> harpIds,
+      UserDetailsResponse detailsResponse,
+      UserRolesResponse rolesResponse,
+      MadieUser existingUser) {
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpConfig.getProgramName()).thenReturn("MADiE");
+    when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
+    when(harpProxyService.fetchUserRoles(anyString(), anyString())).thenReturn(rolesResponse);
+    when(userRepository.findByHarpId(anyString())).thenReturn(Optional.of(existingUser));
   }
 }

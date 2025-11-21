@@ -4,9 +4,9 @@ import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.services.UserService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,13 +19,12 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/users")
-@RequiredArgsConstructor
 public class UserController {
 
   @Value("${harp.test.override-id:}")
   private String harpOverrideTestId;
 
-  private final UserService userService;
+  @Autowired private UserService userService;
 
   @GetMapping("/{harpId}")
   public ResponseEntity<MadieUser> getUser(@PathVariable String harpId, Principal principal) {
@@ -57,12 +56,6 @@ public class UserController {
     // Generate user activity report based on days, based on more recent of lastLoginAt or
     // accessStartAt
     return ResponseEntity.ok("User report coming soon");
-  }
-
-  @PutMapping("/all-users-refresh")
-  public ResponseEntity<Object> refreshAllUsers(Principal principal) {
-    log.info("User [{}] - Kicked off refresh of all users", principal.getName());
-    return ResponseEntity.accepted().body("User refresh job accepted");
   }
 
   @GetMapping("/{harpId}/details")
