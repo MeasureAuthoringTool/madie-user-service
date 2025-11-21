@@ -2,7 +2,7 @@ package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
-import gov.cms.madie.user.repositories.MadieUserRepository;
+import gov.cms.madie.user.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,7 +34,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UpdateUserJobSchedulerTest {
 
-  @Mock private MadieUserRepository madieUserRepository;
+  @Mock private UserRepository userRepository;
   @Mock private UserService userService;
 
   @InjectMocks private UpdateUserJobScheduler updateUserJobScheduler;
@@ -46,7 +46,7 @@ class UpdateUserJobSchedulerTest {
     Page<MadieUser> secondPage =
         new PageImpl<>(List.of(madieUser("H3")), PageRequest.of(1, 50), 100);
 
-    when(madieUserRepository.findAllHarpIds(any(Pageable.class))).thenReturn(firstPage, secondPage);
+    when(userRepository.findAllHarpIds(any(Pageable.class))).thenReturn(firstPage, secondPage);
 
     UserUpdatesJobResultDto firstBatchResult =
         UserUpdatesJobResultDto.builder()
@@ -75,13 +75,13 @@ class UpdateUserJobSchedulerTest {
     assertThat(harpIdsCaptor.getAllValues().get(1), contains("H3"));
     assertThat(actualResults.getUpdatedHarpIds(), contains("H1", "H3"));
     assertThat(actualResults.getFailedHarpIds(), contains("H2"));
-    verify(madieUserRepository, times(2)).findAllHarpIds(any(Pageable.class));
+    verify(userRepository, times(2)).findAllHarpIds(any(Pageable.class));
   }
 
   @Test
   void testUpdateAllUsersFromHarpWhenNoMadieUsersFound() {
     Page<MadieUser> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 50), 0);
-    when(madieUserRepository.findAllHarpIds(any(Pageable.class))).thenReturn(emptyPage);
+    when(userRepository.findAllHarpIds(any(Pageable.class))).thenReturn(emptyPage);
 
     UserUpdatesJobResultDto actualResults = updateUserJobScheduler.triggerUpdateUserJobManually();
 
@@ -93,7 +93,7 @@ class UpdateUserJobSchedulerTest {
   @Test
   void triggerManualUpdateUserDelegatesToScheduledJob() {
     UpdateUserJobScheduler schedulerSpy =
-        spy(new UpdateUserJobScheduler(madieUserRepository, userService));
+        spy(new UpdateUserJobScheduler(userRepository, userService));
     UserUpdatesJobResultDto expectedResult = UserUpdatesJobResultDto.builder().build();
     doReturn(expectedResult).when(schedulerSpy).triggerUpdateUserJobManually();
 

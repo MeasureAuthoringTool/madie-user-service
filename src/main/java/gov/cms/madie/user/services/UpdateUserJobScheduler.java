@@ -2,7 +2,7 @@ package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
-import gov.cms.madie.user.repositories.MadieUserRepository;
+import gov.cms.madie.user.repositories.UserRepository;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UpdateUserJobScheduler {
 
-  private final MadieUserRepository madieUserRepository;
+  private final UserRepository userRepository;
   private final UserService userService;
 
   /** Scheduled job that updates all user data from HARP. */
@@ -37,7 +37,7 @@ public class UpdateUserJobScheduler {
     do {
       // Fetch users with pagination and projection (only harpId field)
       Pageable pageable = PageRequest.of(pageNumber, pageSize);
-      userPage = madieUserRepository.findAllHarpIds(pageable);
+      userPage = userRepository.findAllHarpIds(pageable);
 
       if (userPage.isEmpty()) {
         log.info("No users found on page {}", pageNumber);

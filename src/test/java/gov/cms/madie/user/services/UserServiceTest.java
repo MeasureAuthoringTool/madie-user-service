@@ -10,8 +10,6 @@ import gov.cms.madie.user.dto.UserRole;
 import gov.cms.madie.user.dto.UserRolesResponse;
 import gov.cms.madie.user.repositories.UserRepository;
 import gov.cms.madie.user.dto.*;
-import gov.cms.madie.user.repositories.CustomMadieUserRepository;
-import gov.cms.madie.user.repositories.MadieUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,8 +40,6 @@ class UserServiceTest {
   @Mock HarpProxyService harpProxyService;
   @Mock UserRepository userRepository;
   @Mock HarpConfig harpConfig;
-  @Mock private MadieUserRepository madieUserRepository;
-  @Mock private CustomMadieUserRepository customMadieUserRepository;
   @InjectMocks private UserService userService;
 
   private TokenResponse tokenResponse;
@@ -63,25 +59,25 @@ class UserServiceTest {
             .firstName("John")
             .lastName("Doe")
             .build();
-    when(madieUserRepository.findByHarpId(harpId)).thenReturn(Optional.of(existing));
+    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.of(existing));
 
     MadieUser actual = userService.getUserByHarpId(harpId);
 
     assertThat(actual, is(existing));
     assertThat(actual.getEmail(), is("test@example.com"));
-    verify(madieUserRepository).findByHarpId(harpId);
+    verify(userRepository).findByHarpId(harpId);
   }
 
   @Test
   void getUserByHarpIdReturnsNewUserWhenNotFound() {
     String harpId = "missing123";
-    when(madieUserRepository.findByHarpId(harpId)).thenReturn(Optional.empty());
+    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.empty());
 
     MadieUser actual = userService.getUserByHarpId(harpId);
 
     assertThat(actual.getHarpId(), is(harpId));
     assertNull(actual.getEmail());
-    verify(madieUserRepository).findByHarpId(harpId);
+    verify(userRepository).findByHarpId(harpId);
   }
 
   @Test
@@ -143,7 +139,7 @@ class UserServiceTest {
             .firstName("Jane")
             .lastName("Smith")
             .build();
-    when(madieUserRepository.findByHarpId(harpId)).thenReturn(Optional.of(user));
+    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.of(user));
 
     UserDetailsDto details = userService.getUserDetailsByHarpId(harpId);
 
@@ -156,7 +152,7 @@ class UserServiceTest {
   @Test
   void getUserDetailsByHarpIdReturnsEmptyDetailsWhenNotFound() {
     String harpId = "notfound";
-    when(madieUserRepository.findByHarpId(harpId)).thenReturn(Optional.empty());
+    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.empty());
 
     UserDetailsDto details = userService.getUserDetailsByHarpId(harpId);
 
@@ -171,7 +167,7 @@ class UserServiceTest {
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
     verifyNoInteractions(tokenManager);
-    verifyNoInteractions(customMadieUserRepository);
+    verifyNoInteractions(userRepository);
   }
 
   @Test
@@ -193,7 +189,7 @@ class UserServiceTest {
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
     verify(tokenManager).getCurrentToken();
-    verifyNoInteractions(customMadieUserRepository);
+    verifyNoInteractions(userRepository);
   }
 
   @Test
@@ -207,7 +203,7 @@ class UserServiceTest {
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), containsInAnyOrder("user1", "user2"));
-    verify(customMadieUserRepository, never()).updateMadieUser(anyMap(), anyString());
+    verify(userRepository, never()).updateMadieUser(anyMap(), anyString());
   }
 
   @Test
@@ -254,7 +250,7 @@ class UserServiceTest {
     when(harpConfig.getProgramName()).thenReturn("MADiE");
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     when(harpProxyService.fetchUserRoles(eq("harper"), anyString())).thenReturn(rolesResponse);
-    when(madieUserRepository.findByHarpId("harper")).thenReturn(Optional.of(existingUser));
+    when(userRepository.findByHarpId("harper")).thenReturn(Optional.of(existingUser));
 
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
@@ -263,7 +259,7 @@ class UserServiceTest {
 
     @SuppressWarnings("unchecked")
     ArgumentCaptor<Map<String, Object>> updatesCaptor = ArgumentCaptor.forClass(Map.class);
-    verify(customMadieUserRepository).updateMadieUser(updatesCaptor.capture(), eq("harper"));
+    verify(userRepository).updateMadieUser(updatesCaptor.capture(), eq("harper"));
 
     Map<String, Object> updates = updatesCaptor.getValue();
     assertThat(updates.get("email"), is("harper@example.com"));
@@ -284,7 +280,7 @@ class UserServiceTest {
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
-    verify(customMadieUserRepository, never()).updateMadieUser(anyMap(), anyString());
+    verify(userRepository, never()).updateMadieUser(anyMap(), anyString());
   }
 
   @Test
@@ -299,7 +295,7 @@ class UserServiceTest {
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), empty());
-    verify(customMadieUserRepository, never()).updateMadieUser(anyMap(), anyString());
+    verify(userRepository, never()).updateMadieUser(anyMap(), anyString());
   }
 
   @Test
@@ -360,7 +356,7 @@ class UserServiceTest {
     when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     when(harpProxyService.fetchUserRoles(eq("inactive"), anyString())).thenReturn(rolesResponse);
-    when(madieUserRepository.findByHarpId("inactive")).thenReturn(Optional.of(existingUser));
+    when(userRepository.findByHarpId("inactive")).thenReturn(Optional.of(existingUser));
 
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
@@ -368,7 +364,7 @@ class UserServiceTest {
 
     @SuppressWarnings("unchecked")
     ArgumentCaptor<Map<String, Object>> updatesCaptor = ArgumentCaptor.forClass(Map.class);
-    verify(customMadieUserRepository).updateMadieUser(updatesCaptor.capture(), eq("inactive"));
+    verify(userRepository).updateMadieUser(updatesCaptor.capture(), eq("inactive"));
 
     Map<String, Object> updates = updatesCaptor.getValue();
     assertThat(updates.get("status"), is(UserStatus.DEACTIVATED));
@@ -425,7 +421,7 @@ class UserServiceTest {
     when(harpConfig.getProgramName()).thenReturn("MADiE");
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     when(harpProxyService.fetchUserRoles(eq("user"), anyString())).thenReturn(rolesResponse);
-    when(madieUserRepository.findByHarpId("user")).thenReturn(Optional.of(existingUser));
+    when(userRepository.findByHarpId("user")).thenReturn(Optional.of(existingUser));
 
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
@@ -433,7 +429,7 @@ class UserServiceTest {
 
     @SuppressWarnings("unchecked")
     ArgumentCaptor<Map<String, Object>> updatesCaptor = ArgumentCaptor.forClass(Map.class);
-    verify(customMadieUserRepository).updateMadieUser(updatesCaptor.capture(), eq("user"));
+    verify(userRepository).updateMadieUser(updatesCaptor.capture(), eq("user"));
 
     Map<String, Object> updates = updatesCaptor.getValue();
     @SuppressWarnings("unchecked")

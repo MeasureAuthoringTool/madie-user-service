@@ -1,5 +1,6 @@
 package gov.cms.madie.user.repositories;
 
+import com.mongodb.client.result.UpdateResult;
 import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.access.UserStatus;
@@ -14,11 +15,14 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -427,5 +431,74 @@ class UserPatchRepositoryImplTest {
     String updateStr = updateCaptor.getValue().getUpdateObject().toString();
     assertThat("Update should unset roles", updateStr, containsString("roles"));
     assertThat("Update should contain $unset", updateStr, containsString("$unset"));
+  }
+
+  @Test
+  void updateMadieUserSuccessfullyUpdatesWithValidData() {
+    String harpId = "user123";
+    Map<String, Object> updates = new HashMap<>();
+    updates.put("email", "newemail@example.com");
+    updates.put("firstName", "John");
+    updates.put("lastName", "Doe");
+    UpdateResult mockUpdateResult = UpdateResult.acknowledged(1, 1L, null);
+    when(mongoTemplate.updateFirst(any(Query.class), any(Update.class), eq(MadieUser.class)))
+        .thenReturn(mockUpdateResult);
+
+    UpdateResult result = repository.updateMadieUser(updates, harpId);
+
+    assertNotNull(result);
+    assertTrue(result.wasAcknowledged());
+    assertThat(result.getModifiedCount(), is(1L));
+
+    ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+    ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
+    verify(mongoTemplate)
+        .updateFirst(queryCaptor.capture(), updateCaptor.capture(), eq(MadieUser.class));
+
+    Query capturedQuery = queryCaptor.getValue();
+    assertNotNull(capturedQuery);
+    assertThat(capturedQuery.toString(), containsString("harpId"));
+    assertThat(capturedQuery.toString(), containsString(harpId));
+  }
+
+  @Test
+  void updateMadieUserReturnsUnacknowledgedWhenUpdatesIsNull() {
+    String harpId = "user456";
+
+    UpdateResult result = repository.updateMadieUser(null, harpId);
+
+    assertNotNull(result);
+    assertFalse(result.wasAcknowledged());
+    verify(mongoTemplate, never())
+        .updateFirst(any(Query.class), any(Update.class), eq(MadieUser.class));
+  }
+
+  @Test
+  void updateMadieUserReturnsUnacknowledgedWhenUpdatesIsEmpty() {
+    String harpId = "user789";
+    Map<String, Object> emptyUpdates = Collections.emptyMap();
+
+    UpdateResult result = repository.updateMadieUser(emptyUpdates, harpId);
+
+    assertNotNull(result);
+    assertFalse(result.wasAcknowledged());
+    verify(mongoTemplate, never())
+        .updateFirst(any(Query.class), any(Update.class), eq(MadieUser.class));
+  }
+
+  @Test
+  void updateMadieUserHandlesSingleFieldUpdate() {
+    String harpId = "singlefield";
+    Map<String, Object> updates = new HashMap<>();
+    updates.put("email", "single@example.com");
+    UpdateResult mockUpdateResult = UpdateResult.acknowledged(1, 1L, null);
+    when(mongoTemplate.updateFirst(any(Query.class), any(Update.class), eq(MadieUser.class)))
+        .thenReturn(mockUpdateResult);
+
+    UpdateResult result = repository.updateMadieUser(updates, harpId);
+
+    assertNotNull(result);
+    assertTrue(result.wasAcknowledged());
+    verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MadieUser.class));
   }
 }

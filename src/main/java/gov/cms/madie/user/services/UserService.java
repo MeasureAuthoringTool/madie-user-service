@@ -10,8 +10,6 @@ import gov.cms.madie.user.dto.UserRolesResponse;
 import gov.cms.madie.user.repositories.UserRepository;
 import io.micrometer.common.util.StringUtils;
 import gov.cms.madie.user.dto.*;
-import gov.cms.madie.user.repositories.CustomMadieUserRepository;
-import gov.cms.madie.user.repositories.MadieUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -34,11 +32,9 @@ public class UserService {
   private final UserRepository userRepository;
   private final HarpProxyService harpProxyService;
   private final HarpConfig harpConfig;
-  private final MadieUserRepository madieUserRepository;
-  private final CustomMadieUserRepository customMadieUserRepository;
 
   public MadieUser getUserByHarpId(String harpId) {
-    return madieUserRepository
+    return userRepository
         .findByHarpId(harpId)
         .orElseGet(
             () -> {
@@ -79,7 +75,7 @@ public class UserService {
 
   @Cacheable("users")
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
-    return madieUserRepository
+    return userRepository
         .findByHarpId(harpId)
         .map(
             user ->
@@ -142,11 +138,11 @@ public class UserService {
               buildMadieUser(detailsMap.get(harpId.toLowerCase()), rolesResponse);
           if (updatedUser != null) {
             MadieUser existingUser =
-                madieUserRepository
+                userRepository
                     .findByHarpId(harpId)
                     .orElse(MadieUser.builder().harpId(harpId).build());
             Map<String, Object> updates = prepareUpdate(existingUser, updatedUser);
-            customMadieUserRepository.updateMadieUser(updates, harpId);
+            userRepository.updateMadieUser(updates, harpId);
             userUpdatesJobResultDto.getUpdatedHarpIds().add(harpId);
           } else {
             log.warn("No user data returned from HARP for HARP ID: {}", harpId);
@@ -225,12 +221,10 @@ public class UserService {
     if (madieUser.getStatus() != updatedUser.getStatus()) {
       updates.put("status", updatedUser.getStatus());
     }
-    if (!Objects.equals(madieUser.getCreatedAt(), updatedUser.getCreatedAt())) {
-      updates.put("createdAt", updatedUser.getCreatedAt());
+    if (madieUser.getCreatedAt() == null) {
+      updates.put("createdAt", Instant.now());
     }
-    if (!Objects.equals(madieUser.getLastModifiedAt(), updatedUser.getLastModifiedAt())) {
-      updates.put("lastModifiedAt", updatedUser.getLastModifiedAt());
-    }
+    updates.put("lastModifiedAt", Instant.now());
     // Handle role updates
     updates.put("roles", updatedUser.getRoles());
 
