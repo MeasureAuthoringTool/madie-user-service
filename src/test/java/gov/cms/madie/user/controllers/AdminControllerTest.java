@@ -39,7 +39,7 @@ public class AdminControllerTest {
             .failedHarpIds(List.of("John"))
             .updatedHarpIds(List.of("Bob"))
             .build();
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(resultsDto);
+    when(updateUserJobScheduler.triggerUpdateUsersJobManually()).thenReturn(resultsDto);
     // when
     ResponseEntity<UserUpdatesJobResultDto> response = adminController.refreshAllUsers(principal);
     // then

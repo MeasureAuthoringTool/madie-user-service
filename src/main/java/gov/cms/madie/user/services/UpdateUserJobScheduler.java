@@ -82,7 +82,7 @@ public class UpdateUserJobScheduler {
   }
 
   /** update job manual trigger */
-  public UserUpdatesJobResultDto triggerUpdateUserJobManually() {
+  public UserUpdatesJobResultDto triggerUpdateUsersJobManually() {
     log.info("Manual user update triggered...");
     UserUpdatesJobResultDto jobResultsDto = triggerUpdateUsersJob();
     log.info("Manual user update completed");

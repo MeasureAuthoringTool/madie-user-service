@@ -19,9 +19,10 @@ public class AdminController {
 
   UpdateUserJobScheduler updateUserJobScheduler;
 
+  // TODO: should this be asynchronous? its going to take a while to finish
   @PutMapping("/users/refresh")
   public ResponseEntity<UserUpdatesJobResultDto> refreshAllUsers(Principal principal) {
     log.info("User [{}] - Kicked off refresh job", principal.getName());
-    return ResponseEntity.ok().body(updateUserJobScheduler.triggerUpdateUserJobManually());
+    return ResponseEntity.ok().body(updateUserJobScheduler.triggerUpdateUsersJobManually());
   }
 }

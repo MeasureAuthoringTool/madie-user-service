@@ -42,7 +42,7 @@ public class AdminControllerMvcTest {
             .failedHarpIds(new ArrayList<>(List.of("user4", "user5")))
             .build();
 
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
+    when(updateUserJobScheduler.triggerUpdateUsersJobManually()).thenReturn(results);
 
     mockMvc
         .perform(put("/admin/users/refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
@@ -56,7 +56,7 @@ public class AdminControllerMvcTest {
         .andExpect(jsonPath("$.failedHarpIds[0]", is("user4")))
         .andExpect(jsonPath("$.failedHarpIds[1]", is("user5")));
 
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
+    verify(updateUserJobScheduler, times(1)).triggerUpdateUsersJobManually();
   }
 
   @Test
@@ -65,7 +65,7 @@ public class AdminControllerMvcTest {
         .perform(put("/admin/users/refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isUnauthorized());
 
-    verify(updateUserJobScheduler, never()).triggerUpdateUserJobManually();
+    verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually();
   }
 
   @Test
@@ -75,6 +75,6 @@ public class AdminControllerMvcTest {
         .perform(put("/admin/users/refresh").contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isForbidden());
 
-    verify(updateUserJobScheduler, never()).triggerUpdateUserJobManually();
+    verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually();
   }
 }
