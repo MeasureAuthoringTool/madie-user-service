@@ -170,7 +170,7 @@ class UserServiceTest {
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
-    verifyNoInteractions(harpProxyService);
+    verifyNoInteractions(tokenManager);
     verifyNoInteractions(customMadieUserRepository);
   }
 
@@ -180,26 +180,26 @@ class UserServiceTest {
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
-    verifyNoInteractions(harpProxyService);
+    verifyNoInteractions(tokenManager);
   }
 
   @Test
   void updateUsersFromHarpHandlesTokenRetrievalFailure() {
     List<String> harpIds = List.of("user1", "user2");
-    when(harpProxyService.getToken()).thenThrow(new RuntimeException("Token error"));
+    when(tokenManager.getCurrentToken()).thenThrow(new RuntimeException("Token error"));
 
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
 
     assertThat(results.getUpdatedHarpIds(), empty());
     assertThat(results.getFailedHarpIds(), empty());
-    verify(harpProxyService).getToken();
+    verify(tokenManager).getCurrentToken();
     verifyNoInteractions(customMadieUserRepository);
   }
 
   @Test
   void updateUsersFromHarpHandlesUserDetailsFetchFailure() {
     List<String> harpIds = List.of("user1", "user2");
-    when(harpProxyService.getToken()).thenReturn(tokenResponse);
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString()))
         .thenThrow(new RuntimeException("Fetch error"));
 
@@ -250,7 +250,8 @@ class UserServiceTest {
             .status(UserStatus.DEACTIVATED)
             .build();
 
-    when(harpProxyService.getToken()).thenReturn(tokenResponse);
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpConfig.getProgramName()).thenReturn("MADiE");
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     when(harpProxyService.fetchUserRoles(eq("harper"), anyString())).thenReturn(rolesResponse);
     when(madieUserRepository.findByHarpId("harper")).thenReturn(Optional.of(existingUser));
@@ -276,7 +277,7 @@ class UserServiceTest {
   @Test
   void updateUsersFromHarpHandlesNoUserDetailsReturned() {
     List<String> harpIds = List.of("user1");
-    when(harpProxyService.getToken()).thenReturn(tokenResponse);
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(null);
 
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
@@ -292,7 +293,7 @@ class UserServiceTest {
     UserDetailsResponse emptyResponse = new UserDetailsResponse();
     emptyResponse.setUserdetails(Collections.emptyList());
 
-    when(harpProxyService.getToken()).thenReturn(tokenResponse);
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(emptyResponse);
 
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
@@ -318,7 +319,7 @@ class UserServiceTest {
     UserDetailsResponse detailsResponse = new UserDetailsResponse();
     detailsResponse.setUserdetails(List.of(detail));
 
-    when(harpProxyService.getToken()).thenReturn(tokenResponse);
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     when(harpProxyService.fetchUserRoles(eq("harper"), anyString()))
         .thenThrow(new RuntimeException("Role fetch failed"));
@@ -356,7 +357,7 @@ class UserServiceTest {
             .roles(List.of(HarpRole.builder().role("OldRole").build()))
             .build();
 
-    when(harpProxyService.getToken()).thenReturn(tokenResponse);
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     when(harpProxyService.fetchUserRoles(eq("inactive"), anyString())).thenReturn(rolesResponse);
     when(madieUserRepository.findByHarpId("inactive")).thenReturn(Optional.of(existingUser));
@@ -372,55 +373,6 @@ class UserServiceTest {
     Map<String, Object> updates = updatesCaptor.getValue();
     assertThat(updates.get("status"), is(UserStatus.DEACTIVATED));
     assertThat((List<?>) updates.get("roles"), empty());
-  }
-
-  @Test
-  void updateUsersFromHarpTracksUnchangedUsersWhenNoUpdatesNeeded() {
-    List<String> harpIds = List.of("unchanged");
-
-    UserDetail detail =
-        UserDetail.builder()
-            .username("unchanged")
-            .email("same@example.com")
-            .firstname("Same")
-            .lastname("User")
-            .displayname("Same User")
-            .build();
-    UserDetailsResponse detailsResponse = new UserDetailsResponse();
-    detailsResponse.setUserdetails(List.of(detail));
-
-    UserRole userRole =
-        UserRole.builder()
-            .programName("MADiE")
-            .status("active")
-            .displayName("Role1")
-            .roleType("TYPE1")
-            .build();
-    UserRolesResponse rolesResponse = new UserRolesResponse();
-    rolesResponse.setUserRoles(List.of(userRole));
-
-    HarpRole existingRole = HarpRole.builder().role("Role1").roleType("TYPE1").build();
-    MadieUser existingUser =
-        MadieUser.builder()
-            .harpId("unchanged")
-            .email("same@example.com")
-            .firstName("Same")
-            .lastName("User")
-            .displayName("Same User")
-            .status(UserStatus.ACTIVE)
-            .roles(List.of(existingRole))
-            .build();
-
-    when(harpProxyService.getToken()).thenReturn(tokenResponse);
-    when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
-    when(harpProxyService.fetchUserRoles(eq("unchanged"), anyString())).thenReturn(rolesResponse);
-    when(madieUserRepository.findByHarpId("unchanged")).thenReturn(Optional.of(existingUser));
-
-    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
-
-    assertThat(results.getUnchangedHarpIds(), hasItem("unchanged"));
-    assertThat(results.getUpdatedHarpIds(), empty());
-    verify(customMadieUserRepository, never()).updateMadieUser(anyMap(), anyString());
   }
 
   @Test
@@ -469,7 +421,8 @@ class UserServiceTest {
             .roles(new ArrayList<>(List.of(existingRole)))
             .build();
 
-    when(harpProxyService.getToken()).thenReturn(tokenResponse);
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpConfig.getProgramName()).thenReturn("MADiE");
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     when(harpProxyService.fetchUserRoles(eq("user"), anyString())).thenReturn(rolesResponse);
     when(madieUserRepository.findByHarpId("user")).thenReturn(Optional.of(existingUser));

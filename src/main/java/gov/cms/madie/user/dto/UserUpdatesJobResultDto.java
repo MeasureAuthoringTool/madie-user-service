@@ -14,6 +14,5 @@ import java.util.List;
 @AllArgsConstructor
 public class UserUpdatesJobResultDto {
   List<String> updatedHarpIds = new ArrayList<>();
-  List<String> unchangedHarpIds = new ArrayList<>();
   List<String> failedHarpIds = new ArrayList<>();
 }

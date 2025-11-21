@@ -6,9 +6,9 @@ import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,14 +21,13 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/users")
-@AllArgsConstructor
 public class UserController {
 
   @Value("${harp.test.override-id:}")
   private String harpOverrideTestId;
 
-  private final UserService userService;
-  private UpdateUserJobScheduler updateUserJobScheduler;
+  @Autowired private UserService userService;
+  @Autowired private UpdateUserJobScheduler updateUserJobScheduler;
 
   @GetMapping("/{harpId}")
   public ResponseEntity<MadieUser> getUser(@PathVariable String harpId, Principal principal) {

@@ -14,7 +14,6 @@ import gov.cms.madie.user.repositories.CustomMadieUserRepository;
 import gov.cms.madie.user.repositories.MadieUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -31,7 +30,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserService {
 
-  private final CacheManager cacheManager;
   private final TokenManager tokenManager;
   private final UserRepository userRepository;
   private final HarpProxyService harpProxyService;
@@ -111,7 +109,7 @@ public class UserService {
     TokenResponse token;
     // Get HARP token
     try {
-      token = harpProxyService.getToken();
+      token = tokenManager.getCurrentToken();
     } catch (Exception e) {
       log.error("Error obtaining HARP token. Aborting user update job.", e);
       return userUpdatesJobResultDto;
@@ -148,11 +146,6 @@ public class UserService {
                     .findByHarpId(harpId)
                     .orElse(MadieUser.builder().harpId(harpId).build());
             Map<String, Object> updates = prepareUpdate(existingUser, updatedUser);
-            if (CollectionUtils.isEmpty(updates)) {
-              log.info("No updates required for user with HARP ID: {}", harpId);
-              userUpdatesJobResultDto.getUnchangedHarpIds().add(harpId);
-              continue;
-            }
             customMadieUserRepository.updateMadieUser(updates, harpId);
             userUpdatesJobResultDto.getUpdatedHarpIds().add(harpId);
           } else {
@@ -172,7 +165,6 @@ public class UserService {
   }
 
   private MadieUser buildMadieUser(UserDetail detail, UserRolesResponse rolesResponse) {
-
     // Update user details from HARP response
     MadieUser.MadieUserBuilder userBuilder =
         MadieUser.builder()
@@ -180,16 +172,18 @@ public class UserService {
             .firstName(detail.getFirstname())
             .lastName(detail.getLastname())
             .displayName(detail.getDisplayname())
+            .accessStartAt(getMostRecentStartDate(rolesResponse))
             .createdAt(convertoInstant(detail.getCreatedate()))
             .lastModifiedAt(convertoInstant(detail.getUpdatedate()));
 
     if (rolesResponse != null && !CollectionUtils.isEmpty(rolesResponse.getUserRoles())) {
+      String programName = harpConfig.getProgramName();
       List<HarpRole> roles =
           rolesResponse.getUserRoles().stream()
               .filter(
                   userRole ->
-                      "MADiE".equalsIgnoreCase(userRole.getProgramName())
-                          && "active".equalsIgnoreCase(userRole.getStatus()))
+                      programName.equalsIgnoreCase(userRole.getProgramName())
+                          && "Active".equalsIgnoreCase(userRole.getStatus()))
               .map(
                   role ->
                       HarpRole.builder()
@@ -202,7 +196,6 @@ public class UserService {
         return userBuilder.build();
       }
     }
-
     // No active MADiE roles found, deactivate user
     userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
 
@@ -248,10 +241,15 @@ public class UserService {
     if (StringUtils.isBlank(dateTimeStr)) {
       return null;
     }
-    return Instant.from(
-        LocalDateTime.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-            .atZone(ZoneId.systemDefault())
-            .toInstant());
+    try {
+      return Instant.from(
+          LocalDateTime.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+              .atZone(ZoneId.systemDefault())
+              .toInstant());
+    } catch (Exception e) {
+      log.error("Error converting date string to Instant: {}", dateTimeStr, e);
+      return null;
+    }
   }
 
   /**
@@ -283,24 +281,12 @@ public class UserService {
         || userRolesResponse.getUserRoles().isEmpty()) {
       return null;
     }
-    java.time.format.DateTimeFormatter formatter =
-        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(java.time.ZoneId.systemDefault());
     return userRolesResponse.getUserRoles().stream()
-        .map(gov.cms.madie.user.dto.UserRole::getStartDate)
+        .map(UserRole::getStartDate)
         .filter(java.util.Objects::nonNull)
-        .map(
-            dateStr -> {
-              try {
-                return java.time.LocalDateTime.parse(dateStr, formatter)
-                    .atZone(java.time.ZoneId.systemDefault())
-                    .toInstant();
-              } catch (Exception e) {
-                return null;
-              }
-            })
-        .filter(java.util.Objects::nonNull)
-        .max(java.util.Comparator.naturalOrder())
+        .map(this::convertoInstant)
+        .filter(Objects::nonNull)
+        .max(Comparator.naturalOrder())
         .orElse(null);
   }
 }

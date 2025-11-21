@@ -39,13 +39,11 @@ public class UserControllerMvcTest {
     // Given
     List<String> updatedIds = new ArrayList<>(List.of("user1", "user2", "user3"));
     List<String> failedIds = new ArrayList<>(List.of("user4"));
-    List<String> unchangedIds = new ArrayList<>(List.of("user5", "user6"));
 
     UserUpdatesJobResultDto results =
         UserUpdatesJobResultDto.builder()
             .updatedHarpIds(updatedIds)
             .failedHarpIds(failedIds)
-            .unchangedHarpIds(unchangedIds)
             .build();
 
     when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
@@ -61,10 +59,7 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.updatedHarpIds[1]", is("user2")))
         .andExpect(jsonPath("$.updatedHarpIds[2]", is("user3")))
         .andExpect(jsonPath("$.failedHarpIds", hasSize(1)))
-        .andExpect(jsonPath("$.failedHarpIds[0]", is("user4")))
-        .andExpect(jsonPath("$.unchangedHarpIds", hasSize(2)))
-        .andExpect(jsonPath("$.unchangedHarpIds[0]", is("user5")))
-        .andExpect(jsonPath("$.unchangedHarpIds[1]", is("user6")));
+        .andExpect(jsonPath("$.failedHarpIds[0]", is("user4")));
 
     verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
@@ -77,7 +72,6 @@ public class UserControllerMvcTest {
         UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>())
             .failedHarpIds(new ArrayList<>())
-            .unchangedHarpIds(new ArrayList<>())
             .build();
 
     when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(emptyResults);
@@ -89,8 +83,7 @@ public class UserControllerMvcTest {
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$.updatedHarpIds", hasSize(0)))
-        .andExpect(jsonPath("$.failedHarpIds", hasSize(0)))
-        .andExpect(jsonPath("$.unchangedHarpIds", hasSize(0)));
+        .andExpect(jsonPath("$.failedHarpIds", hasSize(0)));
 
     verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
@@ -105,7 +98,6 @@ public class UserControllerMvcTest {
         UserUpdatesJobResultDto.builder()
             .updatedHarpIds(updatedIds)
             .failedHarpIds(new ArrayList<>())
-            .unchangedHarpIds(new ArrayList<>())
             .build();
 
     when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
@@ -117,8 +109,7 @@ public class UserControllerMvcTest {
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$.updatedHarpIds", hasSize(5)))
-        .andExpect(jsonPath("$.failedHarpIds", empty()))
-        .andExpect(jsonPath("$.unchangedHarpIds", empty()));
+        .andExpect(jsonPath("$.failedHarpIds", empty()));
 
     verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
@@ -133,7 +124,6 @@ public class UserControllerMvcTest {
         UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>())
             .failedHarpIds(failedIds)
-            .unchangedHarpIds(new ArrayList<>())
             .build();
 
     when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
@@ -145,36 +135,7 @@ public class UserControllerMvcTest {
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$.updatedHarpIds", empty()))
-        .andExpect(jsonPath("$.failedHarpIds", hasSize(3)))
-        .andExpect(jsonPath("$.unchangedHarpIds", empty()));
-
-    verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
-  }
-
-  @Test
-  @WithMockUser(username = "testuser")
-  void refreshAllUsersHandlesAllUnchangedScenario() throws Exception {
-    // Given - all users unchanged
-    List<String> unchangedIds = new ArrayList<>(List.of("user1", "user2"));
-
-    UserUpdatesJobResultDto results =
-        UserUpdatesJobResultDto.builder()
-            .updatedHarpIds(new ArrayList<>())
-            .failedHarpIds(new ArrayList<>())
-            .unchangedHarpIds(unchangedIds)
-            .build();
-
-    when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
-
-    // When & Then
-    mockMvc
-        .perform(
-            put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.updatedHarpIds", empty()))
-        .andExpect(jsonPath("$.failedHarpIds", empty()))
-        .andExpect(jsonPath("$.unchangedHarpIds", hasSize(2)));
+        .andExpect(jsonPath("$.failedHarpIds", hasSize(3)));
 
     verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
@@ -187,7 +148,6 @@ public class UserControllerMvcTest {
         UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>(List.of("updated1", "updated2")))
             .failedHarpIds(new ArrayList<>(List.of("failed1")))
-            .unchangedHarpIds(new ArrayList<>(List.of("unchanged1", "unchanged2", "unchanged3")))
             .build();
 
     when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
@@ -199,8 +159,7 @@ public class UserControllerMvcTest {
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$.updatedHarpIds", hasSize(2)))
-        .andExpect(jsonPath("$.failedHarpIds", hasSize(1)))
-        .andExpect(jsonPath("$.unchangedHarpIds", hasSize(3)));
+        .andExpect(jsonPath("$.failedHarpIds", hasSize(1)));
 
     verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }
@@ -235,7 +194,6 @@ public class UserControllerMvcTest {
         UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>(List.of("user1")))
             .failedHarpIds(new ArrayList<>())
-            .unchangedHarpIds(new ArrayList<>())
             .build();
 
     when(updateUserJobScheduler.triggerUpdateUserJobManually()).thenReturn(results);
@@ -245,8 +203,7 @@ public class UserControllerMvcTest {
         .perform(
             put("/users/all-users-refresh").with(csrf()).contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.updatedHarpIds", hasSize(1)))
-        .andExpect(jsonPath("$.updatedHarpIds[0]", is("user1")));
+        .andExpect(jsonPath("$.updatedHarpIds", hasSize(1)));
 
     verify(updateUserJobScheduler, times(1)).triggerUpdateUserJobManually();
   }

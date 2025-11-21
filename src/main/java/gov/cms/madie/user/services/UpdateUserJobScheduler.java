@@ -66,9 +66,6 @@ public class UpdateUserJobScheduler {
       if (!CollectionUtils.isEmpty(resultsDto.getUpdatedHarpIds())) {
         updateJobResultsDto.getUpdatedHarpIds().addAll(resultsDto.getUpdatedHarpIds());
       }
-      if (!CollectionUtils.isEmpty(resultsDto.getUnchangedHarpIds())) {
-        updateJobResultsDto.getUnchangedHarpIds().addAll(resultsDto.getUnchangedHarpIds());
-      }
       // Update page number
       pageNumber++;
     } while (userPage.hasNext());
