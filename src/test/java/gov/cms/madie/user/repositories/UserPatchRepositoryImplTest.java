@@ -437,7 +437,7 @@ class UserPatchRepositoryImplTest {
   void updateMadieUserSuccessfullyUpdatesWithValidData() {
     String harpId = "user123";
     Map<String, Object> updates = new HashMap<>();
-    updates.put("email", "newemail@example.com");
+    updates.put("email", "fake@email.com");
     updates.put("firstName", "John");
     updates.put("lastName", "Doe");
     UpdateResult mockUpdateResult = UpdateResult.acknowledged(1, 1L, null);
@@ -490,7 +490,7 @@ class UserPatchRepositoryImplTest {
   void updateMadieUserHandlesSingleFieldUpdate() {
     String harpId = "singlefield";
     Map<String, Object> updates = new HashMap<>();
-    updates.put("email", "single@example.com");
+    updates.put("email", "fake@email.com");
     UpdateResult mockUpdateResult = UpdateResult.acknowledged(1, 1L, null);
     when(mongoTemplate.updateFirst(any(Query.class), any(Update.class), eq(MadieUser.class)))
         .thenReturn(mockUpdateResult);

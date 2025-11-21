@@ -92,72 +92,115 @@ public class UserService {
             });
   }
 
-  /*
+  /**
    * Updates users in the database with fresh data from HARP.
+   *
    * @param harpIds List of HARP IDs to update
+   * @return UserUpdatesJobResultDto containing the results of the update operation
    */
   public UserUpdatesJobResultDto updateUsersFromHarp(List<String> harpIds) {
-    UserUpdatesJobResultDto userUpdatesJobResultDto = new UserUpdatesJobResultDto();
+    UserUpdatesJobResultDto result = new UserUpdatesJobResultDto();
+
     if (CollectionUtils.isEmpty(harpIds)) {
-      log.warn("No valid HARP IDs provided. aborting user update job.");
-      return userUpdatesJobResultDto;
+      log.warn("No valid HARP IDs provided. Aborting user update job.");
+      return result;
     }
-    TokenResponse token;
-    // Get HARP token
+
+    TokenResponse token = fetchTokenOrFail();
+    if (token == null) {
+      return result;
+    }
+
+    UserDetailsResponse detailsResponse = fetchUserDetailsOrFail(harpIds, token, result);
+    if (detailsResponse == null || CollectionUtils.isEmpty(detailsResponse.getUserdetails())) {
+      log.warn("No user details returned from HARP for batch");
+      return result;
+    }
+
+    Map<String, UserDetail> detailsMap =
+        detailsResponse.getUserdetails().stream()
+            .collect(
+                Collectors.toMap(
+                    detail -> detail.getUsername().toLowerCase(Locale.ROOT),
+                    detail -> detail,
+                    (existing, replacement) -> existing));
+    for (String harpId : harpIds) {
+      updateSingleUser(harpId, token, detailsMap, result);
+    }
+    return result;
+  }
+
+  /**
+   * Fetches authentication token, handling errors gracefully.
+   *
+   * @return TokenResponse if successful, null otherwise
+   */
+  private TokenResponse fetchTokenOrFail() {
     try {
-      token = tokenManager.getCurrentToken();
+      return tokenManager.getCurrentToken();
     } catch (Exception e) {
       log.error("Error obtaining HARP token. Aborting user update job.", e);
-      return userUpdatesJobResultDto;
+      return null;
     }
+  }
 
-    // Fetch user details from HARP
-    UserDetailsResponse detailsResponse;
+  /**
+   * Fetches user details from HARP, handling errors gracefully.
+   *
+   * @param harpIds list of HARP IDs to fetch
+   * @param token authentication token
+   * @param result the result object to populate on failure
+   * @return UserDetailsResponse if successful, null otherwise
+   */
+  private UserDetailsResponse fetchUserDetailsOrFail(
+      List<String> harpIds, TokenResponse token, UserUpdatesJobResultDto result) {
     try {
-      detailsResponse = harpProxyService.fetchUserDetails(harpIds, token.getAccessToken());
+      return harpProxyService.fetchUserDetails(harpIds, token.getAccessToken());
     } catch (Exception e) {
       log.error("Error fetching HARP user details. Aborting user update job.", e);
-      userUpdatesJobResultDto.getFailedHarpIds().addAll(harpIds);
-      return userUpdatesJobResultDto;
+      result.getFailedHarpIds().addAll(harpIds);
+      return null;
     }
+  }
 
-    if (detailsResponse != null && !CollectionUtils.isEmpty(detailsResponse.getUserdetails())) {
-      // Create a map for quick lookup
-      Map<String, UserDetail> detailsMap =
-          detailsResponse.getUserdetails().stream()
-              .collect(
-                  Collectors.toMap(
-                      detail -> detail.getUsername().toLowerCase(), detail -> detail, (a, b) -> a));
+  /**
+   * Updates a single user with fresh data from HARP.
+   *
+   * @param harpId the HARP ID of the user to update
+   * @param token authentication token
+   * @param detailsMap map of user details
+   * @param result the result object to populate
+   */
+  private void updateSingleUser(
+      String harpId,
+      TokenResponse token,
+      Map<String, UserDetail> detailsMap,
+      UserUpdatesJobResultDto result) {
+    try {
+      UserRolesResponse rolesResponse =
+          harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
+      MadieUser updatedUser =
+          buildMadieUser(detailsMap.get(harpId.toLowerCase(Locale.ROOT)), rolesResponse);
 
-      // Update each user with fresh data from HARP
-      for (String harpId : harpIds) {
-        try {
-          UserRolesResponse rolesResponse =
-              harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
-          MadieUser updatedUser =
-              buildMadieUser(detailsMap.get(harpId.toLowerCase()), rolesResponse);
-          if (updatedUser != null) {
-            MadieUser existingUser =
-                userRepository
-                    .findByHarpId(harpId)
-                    .orElse(MadieUser.builder().harpId(harpId).build());
-            Map<String, Object> updates = prepareUpdate(existingUser, updatedUser);
-            userRepository.updateMadieUser(updates, harpId);
-            userUpdatesJobResultDto.getUpdatedHarpIds().add(harpId);
-          } else {
-            log.warn("No user data returned from HARP for HARP ID: {}", harpId);
-            userUpdatesJobResultDto.getFailedHarpIds().add(harpId);
-          }
-        } catch (Exception e) {
-          log.error("Failed to update user with HARP ID: {}", harpId, e);
-          userUpdatesJobResultDto.getFailedHarpIds().add(harpId);
-        }
+      if (updatedUser == null) {
+        log.warn("No user data returned from HARP for HARP ID: {}", harpId);
+        result.getFailedHarpIds().add(harpId);
+        return;
       }
-    } else {
-      log.warn("No user details returned from HARP for batch");
-    }
 
-    return userUpdatesJobResultDto;
+      MadieUser existingUser =
+          userRepository.findByHarpId(harpId).orElse(MadieUser.builder().harpId(harpId).build());
+      Map<String, Object> updates = prepareUpdate(existingUser, updatedUser);
+
+      if (!CollectionUtils.isEmpty(updates)) {
+        userRepository.updateMadieUser(updates, harpId);
+        result.getUpdatedHarpIds().add(harpId);
+      }
+
+    } catch (Exception e) {
+      log.error("Failed to update user with HARP ID: {}", harpId, e);
+      result.getFailedHarpIds().add(harpId);
+    }
   }
 
   private MadieUser buildMadieUser(UserDetail detail, UserRolesResponse rolesResponse) {
@@ -225,7 +268,6 @@ public class UserService {
       updates.put("createdAt", Instant.now());
     }
     updates.put("lastModifiedAt", Instant.now());
-    // Handle role updates
     updates.put("roles", updatedUser.getRoles());
 
     return updates;
@@ -249,8 +291,8 @@ public class UserService {
   /**
    * Determines the user status based on the presence of active roles in the UserRolesResponse.
    *
-   * @param userRolesResponse
-   * @return
+   * @param userRolesResponse the response containing user roles
+   * @return UserStatus.ACTIVE if user has active roles, UserStatus.DEACTIVATED otherwise
    */
   public UserStatus getStatusForRoles(UserRolesResponse userRolesResponse) {
     if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) {
