@@ -33,6 +33,14 @@ public class UserService {
   private final HarpProxyService harpProxyService;
   private final HarpConfig harpConfig;
 
+  public boolean areHarpIdsValid(List<String> harpIds) {
+    if (CollectionUtils.isEmpty(harpIds)) {
+      return false;
+    }
+
+    return userRepository.countByHarpIdIn(harpIds) == harpIds.size();
+  }
+
   public MadieUser getUserByHarpId(String harpId) {
     return userRepository
         .findByHarpId(harpId)

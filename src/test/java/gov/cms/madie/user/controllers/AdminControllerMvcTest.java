@@ -17,7 +17,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.hamcrest.Matchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -43,7 +42,7 @@ public class AdminControllerMvcTest {
             .failedHarpIds(new ArrayList<>(List.of("user4", "user5")))
             .build();
 
-    when(updateUserJobScheduler.triggerUpdateUsersJobManually(null)).thenReturn(results);
+    doNothing().when(updateUserJobScheduler).triggerUpdateUsersJobManually(null);
 
     mockMvc
         .perform(
@@ -51,15 +50,7 @@ public class AdminControllerMvcTest {
                 .with(csrf())
                 .header("api-key", ADMIN_TEST_API_KEY)
                 .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.updatedHarpIds", hasSize(3)))
-        .andExpect(jsonPath("$.updatedHarpIds[0]", is("user1")))
-        .andExpect(jsonPath("$.updatedHarpIds[1]", is("user2")))
-        .andExpect(jsonPath("$.updatedHarpIds[2]", is("user3")))
-        .andExpect(jsonPath("$.failedHarpIds", hasSize(2)))
-        .andExpect(jsonPath("$.failedHarpIds[0]", is("user4")))
-        .andExpect(jsonPath("$.failedHarpIds[1]", is("user5")));
+        .andExpect(status().isAccepted());
 
     verify(updateUserJobScheduler, times(1)).triggerUpdateUsersJobManually(null);
   }

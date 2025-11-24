@@ -13,6 +13,15 @@ public interface UserRepository extends MongoRepository<MadieUser, String>, User
   Optional<MadieUser> findByHarpId(String harpId);
 
   /**
+   * Count how many MadieUsers exist for the provided list of HARP IDs.
+   *
+   * @param harpIds list of HARP IDs to check
+   * @return count of existing users
+   */
+  @Query(value = "{ 'harpId': { $in: ?0 } }", count = true)
+  int countByHarpIdIn(java.util.List<String> harpIds);
+
+  /**
    * Fetch only harpId field using projection to reduce memory usage.
    *
    * @param pageable pagination parameters
