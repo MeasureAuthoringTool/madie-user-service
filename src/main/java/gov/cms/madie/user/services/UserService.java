@@ -108,6 +108,7 @@ public class UserService {
 
     TokenResponse token = fetchTokenOrFail();
     if (token == null) {
+      log.info("Unable to fetch the token. Aborting user update job.");
       return result;
     }
 

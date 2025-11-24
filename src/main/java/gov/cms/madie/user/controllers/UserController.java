@@ -4,9 +4,9 @@ import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.services.UserService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,12 +19,13 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/users")
+@RequiredArgsConstructor
 public class UserController {
 
   @Value("${harp.test.override-id:}")
   private String harpOverrideTestId;
 
-  @Autowired private UserService userService;
+  private final UserService userService;
 
   @GetMapping("/{harpId}")
   public ResponseEntity<MadieUser> getUser(@PathVariable String harpId, Principal principal) {
