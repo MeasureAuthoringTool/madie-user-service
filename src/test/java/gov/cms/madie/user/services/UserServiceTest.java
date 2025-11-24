@@ -494,6 +494,23 @@ class UserServiceTest {
         is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
   }
 
+  @Test
+  void testAreHarpIdsValid() {
+    // given
+    List<String> harpIds = List.of("harp1", "harp2", "harp3");
+    when(userRepository.countByHarpIdIn(anyList())).thenReturn(3);
+    // when & then
+    assertTrue(userService.areHarpIdsValid(harpIds));
+  }
+
+  @Test
+  void testAreHarpIdsValidWhenInvalid() {
+    // given
+    when(userRepository.countByHarpIdIn(anyList())).thenReturn(2);
+    // when & then
+    assertFalse(userService.areHarpIdsValid(List.of("harp1", "harp2", "harp3")));
+  }
+
   // Helper methods for test setup
 
   private UserDetailsResponse createUserDetailsResponse(

@@ -30,10 +30,8 @@ logging:
 # User update job scheduler configuration
 user:
   update:
-    # Cron expression: run every 10 hours (at minute 0)
-    # Format: second minute hour day-of-month month day-of-week
-    # Example: "0 0 */10 * * *" => at 00:00, 10:00, 20:00 every day
-    cron-expression: ${USER_UPDATE_CRON:0 0 */10 * * *}
+    # Cron expression for scheduling the user update job
+    cron-expression: ${USER_UPDATE_CRON:-}
 
 admin-api-key: ${ADMIN_API_KEY:0a51991c}
 

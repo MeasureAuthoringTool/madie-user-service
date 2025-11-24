@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -60,7 +61,6 @@ public class UpdateUserJobScheduler {
       UserUpdatesJobResultDto resultsDto = userService.updateUsersFromHarp(harpIds);
       // collect results
       if (!CollectionUtils.isEmpty(resultsDto.getFailedHarpIds())) {
-        log.info("Update failed for following users: {}", resultsDto.getFailedHarpIds());
         updateJobResultsDto.getFailedHarpIds().addAll(resultsDto.getFailedHarpIds());
       }
       if (!CollectionUtils.isEmpty(resultsDto.getUpdatedHarpIds())) {
@@ -70,28 +70,43 @@ public class UpdateUserJobScheduler {
       pageNumber++;
     } while (userPage.hasNext());
 
-    log.info(
-        """
-        Completed scheduled user update from HARP at {}
-        Total users updated successfully: {}\s
-        Total users failed to update: {}""",
-        Instant.now(),
-        updateJobResultsDto.getUpdatedHarpIds().size(),
-        updateJobResultsDto.getFailedHarpIds().size());
+    logJobResults(updateJobResultsDto);
     return updateJobResultsDto;
   }
 
   /** update job manual trigger */
-  public UserUpdatesJobResultDto triggerUpdateUsersJobManually(List<String> harpIds) {
-    log.info("Manual user update triggered...");
-    UserUpdatesJobResultDto jobResults;
+  @Async
+  public void triggerUpdateUsersJobManually(List<String> harpIds) {
+    log.info("Manual user update job triggered at {}", Instant.now());
     // if no harpIds provided, update all users
     if (CollectionUtils.isEmpty(harpIds)) {
-      jobResults = triggerUpdateUsersJob();
+      triggerUpdateUsersJob();
     } else {
-      jobResults = userService.updateUsersFromHarp(harpIds);
+      UserUpdatesJobResultDto resultsDto;
+      if (userService.areHarpIdsValid(harpIds)) {
+        resultsDto = userService.updateUsersFromHarp(harpIds);
+      } else {
+        log.warn("Invalid HARP IDs provided for manual user update: {}", harpIds);
+        resultsDto =
+            UserUpdatesJobResultDto.builder()
+                .failedHarpIds(harpIds)
+                .updatedHarpIds(List.of())
+                .build();
+      }
+      logJobResults(resultsDto);
     }
     log.info("Manual user update completed");
-    return jobResults;
+  }
+
+  private void logJobResults(UserUpdatesJobResultDto resultsDto) {
+    log.info(
+        """
+      User update job results:
+      Total users updated successfully: {}
+      Total users failed to update: {}
+      Failed HARP IDs: {}""",
+        resultsDto.getUpdatedHarpIds().size(),
+        resultsDto.getFailedHarpIds().size(),
+        resultsDto.getFailedHarpIds());
   }
 }

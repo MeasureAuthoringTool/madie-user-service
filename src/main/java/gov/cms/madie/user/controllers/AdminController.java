@@ -1,6 +1,5 @@
 package gov.cms.madie.user.controllers;
 
-import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @RestController
@@ -24,15 +24,18 @@ public class AdminController {
 
   private final UpdateUserJobScheduler updateUserJobScheduler;
 
-  // TODO: should this be asynchronous? its going to take a while to finish
   @PutMapping("/users/refresh")
   @PreAuthorize("#request.getHeader('api-key') == #apiKey")
-  public ResponseEntity<UserUpdatesJobResultDto> refreshAllUsers(
+  public ResponseEntity<Object> refreshAllUsers(
       HttpServletRequest request,
       @Value("${admin-api-key}") String apiKey,
       Principal principal,
       @RequestBody(required = false) List<String> harpIds) {
     log.info("User [{}] - Kicked off refresh job", principal.getName());
-    return ResponseEntity.ok().body(updateUserJobScheduler.triggerUpdateUsersJobManually(harpIds));
+
+    // Fire and forget - trigger job asynchronously
+    CompletableFuture.runAsync(() -> updateUserJobScheduler.triggerUpdateUsersJobManually(harpIds));
+
+    return ResponseEntity.accepted().body("User refresh job accepted");
   }
 }
