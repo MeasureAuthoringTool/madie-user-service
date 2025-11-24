@@ -10,8 +10,8 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-@EnableScheduling
 @SpringBootApplication
+@EnableScheduling
 public class UserServiceApplication {
 
   public static void main(String[] args) {
