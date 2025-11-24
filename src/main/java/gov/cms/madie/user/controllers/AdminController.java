@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @RestController
@@ -34,7 +33,7 @@ public class AdminController {
     log.info("User [{}] - Kicked off refresh job", principal.getName());
 
     // Fire and forget - trigger job asynchronously
-    CompletableFuture.runAsync(() -> updateUserJobScheduler.triggerUpdateUsersJobManually(harpIds));
+    updateUserJobScheduler.triggerUpdateUsersJobManually(harpIds);
 
     return ResponseEntity.accepted().body("User refresh job accepted");
   }
