@@ -3,7 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +19,10 @@ import java.util.List;
 @Slf4j
 @RestController()
 @RequestMapping("/admin")
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class AdminController {
 
-  UpdateUserJobScheduler updateUserJobScheduler;
+  private final UpdateUserJobScheduler updateUserJobScheduler;
 
   // TODO: should this be asynchronous? its going to take a while to finish
   @PutMapping("/users/refresh")
