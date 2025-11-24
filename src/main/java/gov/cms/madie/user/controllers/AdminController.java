@@ -17,7 +17,7 @@ import java.security.Principal;
 import java.util.List;
 
 @Slf4j
-@RestController()
+@RestController
 @RequestMapping("/admin")
 @RequiredArgsConstructor
 public class AdminController {
