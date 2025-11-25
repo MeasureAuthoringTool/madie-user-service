@@ -1,6 +1,7 @@
 package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.MadieUser;
+import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.config.HarpConfig;
 import gov.cms.madie.user.dto.HarpResponseWrapper;
@@ -186,7 +187,7 @@ class UserServiceTest {
     // when
     var status = userService.getStatusForRoles(wrapper);
     // then
-    assertThat(status, is(gov.cms.madie.models.access.UserStatus.ACTIVE));
+    assertThat(status, is(UserStatus.ACTIVE));
   }
 
   @Test
@@ -201,7 +202,7 @@ class UserServiceTest {
     // when
     var status = userService.getStatusForRoles(wrapper);
     // then
-    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(UserStatus.DEACTIVATED));
   }
 
   @Test
@@ -218,7 +219,7 @@ class UserServiceTest {
     // when
     var status = userService.getStatusForRoles(wrapper);
     // then
-    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(UserStatus.DEACTIVATED));
   }
 
   @Test
@@ -227,7 +228,7 @@ class UserServiceTest {
     // when
     var status = userService.getStatusForRoles(null);
     // then
-    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(UserStatus.ERROR_SUSPENDED));
   }
 
   @Test
@@ -241,7 +242,7 @@ class UserServiceTest {
     // when
     var status = userService.getStatusForRoles(wrapper);
     // then
-    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(UserStatus.DEACTIVATED));
   }
 
   @Test
@@ -251,7 +252,7 @@ class UserServiceTest {
         .error(gov.cms.madie.user.dto.HarpErrorResponse.builder().errorCode("ERR-ROLECREATION-027").build())
         .build();
     var status = userService.getStatusForRoles(wrapper);
-    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(UserStatus.DEACTIVATED));
   }
 
   @Test
@@ -261,6 +262,6 @@ class UserServiceTest {
         .error(gov.cms.madie.user.dto.HarpErrorResponse.builder().errorCode("ERR-OTHER").build())
         .build();
     var status = userService.getStatusForRoles(wrapper);
-    assertThat(status, is(gov.cms.madie.models.access.UserStatus.ERROR_SUSPENDED));
+    assertThat(status, is(UserStatus.ERROR_SUSPENDED));
   }
 }

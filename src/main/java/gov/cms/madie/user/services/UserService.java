@@ -83,13 +83,8 @@ public class UserService {
    * @return
    */
   public UserStatus getStatusForRoles(HarpResponseWrapper<UserRolesResponse> responseWrapper) {
-    // Error handling for HTTP 4xx/5xx
-    if (responseWrapper == null) {
-      return UserStatus.DEACTIVATED;
-    }
-    if (responseWrapper.getStatusCode() != null &&
-        (responseWrapper.getStatusCode().is4xxClientError() || responseWrapper.getStatusCode().is5xxServerError())) {
-      if (responseWrapper.getError() != null &&
+    if (responseWrapper == null || !responseWrapper.isSuccess()) {
+      if (responseWrapper != null && responseWrapper.getError() != null &&
           "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
         return UserStatus.DEACTIVATED;
       } else {
