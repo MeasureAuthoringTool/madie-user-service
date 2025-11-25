@@ -32,8 +32,14 @@ public class TokenManager {
   /** This method will be called every 20 minutes to refresh the HARP token. */
   @Scheduled(cron = "0 0,20,40 * * * *")
   public synchronized void forceRefreshToken() {
-    currentToken = harpProxyService.getToken();
-    log.info(
-        "HARP token refresh was triggered. New token expires at: {}", currentToken.getExpiresAt());
+    try {
+      currentToken = harpProxyService.getToken();
+      log.info(
+          "HARP token refresh was triggered. New token expires at: {}",
+          currentToken.getExpiresAt());
+    } catch (Exception e) {
+      log.error("Unable to refresh HARP token due to error", e);
+      currentToken = null;
+    }
   }
 }

@@ -5,7 +5,9 @@ import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.config.HarpConfig;
+import gov.cms.madie.user.dto.HarpResponseWrapper;
 import gov.cms.madie.user.dto.TokenResponse;
+import gov.cms.madie.user.dto.UserRole;
 import gov.cms.madie.user.dto.UserRolesResponse;
 import gov.cms.madie.user.repositories.UserRepository;
 import io.micrometer.common.util.StringUtils;
@@ -16,6 +18,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -41,14 +48,14 @@ public class UserService {
       log.info("Unable to refresh user roles for HARP ID: {} - no token received", harpId);
       // for now, do not block user login
     } else {
-      UserRolesResponse userRolesResponse =
+      HarpResponseWrapper<UserRolesResponse> responseWrapper =
           harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
-
+      UserRolesResponse userRolesResponse = responseWrapper.getResponse();
       return userRepository.loginUser(
           MadieUser.builder()
               .harpId(harpId)
               .accessStartAt(getMostRecentStartDate(userRolesResponse))
-              .status(getStatusForRoles(userRolesResponse))
+              .status(getStatusForRoles(responseWrapper))
               .roles(
                   userRolesResponse.getUserRoles().stream()
                       .map(
@@ -70,12 +77,26 @@ public class UserService {
   }
 
   /**
-   * Determines the user status based on the presence of active roles in the UserRolesResponse.
+   * Determines the UserStatus based on the response from the HARP API when fetching user roles. It checks for specific error codes and messages to determine if the user is deactivated or suspended, and otherwise checks if the user has an active role in the specified program.
    *
-   * @param userRolesResponse
+   * @param responseWrapper the response wrapper containing the UserRolesResponse and any exceptions
    * @return
    */
-  public UserStatus getStatusForRoles(UserRolesResponse userRolesResponse) {
+  public UserStatus getStatusForRoles(HarpResponseWrapper<UserRolesResponse> responseWrapper) {
+    // Error handling for HTTP 4xx/5xx
+    if (responseWrapper == null) {
+      return UserStatus.DEACTIVATED;
+    }
+    if (responseWrapper.getStatusCode() != null &&
+        (responseWrapper.getStatusCode().is4xxClientError() || responseWrapper.getStatusCode().is5xxServerError())) {
+      if (responseWrapper.getError() != null &&
+          "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
+        return UserStatus.DEACTIVATED;
+      } else {
+        return UserStatus.ERROR_SUSPENDED;
+      }
+    }
+    UserRolesResponse userRolesResponse = responseWrapper.getResponse();
     if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) {
       return UserStatus.DEACTIVATED;
     }
@@ -98,24 +119,24 @@ public class UserService {
         || userRolesResponse.getUserRoles().isEmpty()) {
       return null;
     }
-    java.time.format.DateTimeFormatter formatter =
-        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(java.time.ZoneId.systemDefault());
+    DateTimeFormatter formatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+            .withZone(ZoneId.systemDefault());
     return userRolesResponse.getUserRoles().stream()
-        .map(gov.cms.madie.user.dto.UserRole::getStartDate)
-        .filter(java.util.Objects::nonNull)
+        .map(UserRole::getStartDate)
+        .filter(Objects::nonNull)
         .map(
             dateStr -> {
               try {
-                return java.time.LocalDateTime.parse(dateStr, formatter)
-                    .atZone(java.time.ZoneId.systemDefault())
+                return LocalDateTime.parse(dateStr, formatter)
+                    .atZone(ZoneId.systemDefault())
                     .toInstant();
               } catch (Exception e) {
                 return null;
               }
             })
-        .filter(java.util.Objects::nonNull)
-        .max(java.util.Comparator.naturalOrder())
+        .filter(Objects::nonNull)
+        .max(Comparator.naturalOrder())
         .orElse(null);
   }
 }

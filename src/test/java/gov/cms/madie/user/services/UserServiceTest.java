@@ -3,6 +3,7 @@ package gov.cms.madie.user.services;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.config.HarpConfig;
+import gov.cms.madie.user.dto.HarpResponseWrapper;
 import gov.cms.madie.user.dto.TokenResponse;
 import gov.cms.madie.user.dto.UserRole;
 import gov.cms.madie.user.dto.UserRolesResponse;
@@ -13,6 +14,8 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 
 import java.time.Instant;
 import java.util.List;
@@ -48,15 +51,18 @@ class UserServiceTest {
         .thenReturn(TokenResponse.builder().accessToken("fake.jwt").build());
     when(harpProxyService.fetchUserRoles(harpId, "fake.jwt"))
         .thenReturn(
-            UserRolesResponse.builder()
-                .userRoles(
-                    List.of(
-                        UserRole.builder()
-                            .roleType("Group")
-                            .programName("MADiE")
-                            .displayName("MADiE-User")
-                            .build()))
-                .build());
+            HarpResponseWrapper.<UserRolesResponse>builder()
+                    .response(UserRolesResponse.builder()
+                            .userRoles(
+                                    List.of(
+                                            UserRole.builder()
+                                                    .roleType("Group")
+                                                    .programName("MADiE")
+                                                    .displayName("MADiE-User")
+                                                    .build()))
+                            .build())
+                    .statusCode(HttpStatus.OK)
+                    .build());
     when(harpConfig.getProgramName()).thenReturn("MADiE");
     when(userRepository.loginUser(ArgumentMatchers.any(MadieUser.class)))
         .thenReturn(MadieUser.builder().harpId("bbb222").build());
@@ -170,17 +176,17 @@ class UserServiceTest {
     // given
     String programName = "MADiE";
     when(harpConfig.getProgramName()).thenReturn(programName);
-    UserRolesResponse response =
-        UserRolesResponse.builder()
-            .userRoles(List.of(UserRole.builder().programName(programName).build()))
-            .build();
+    UserRolesResponse response = UserRolesResponse.builder()
+        .userRoles(List.of(UserRole.builder().programName(programName).build()))
+        .build();
+    HarpResponseWrapper<UserRolesResponse> wrapper = HarpResponseWrapper.<UserRolesResponse>builder()
+        .response(response)
+        .statusCode(HttpStatus.OK)
+        .build();
     // when
-    var status = userService.getStatusForRoles(response);
+    var status = userService.getStatusForRoles(wrapper);
     // then
-    assertThat(
-        "Status should be ACTIVE when matching role exists",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.ACTIVE));
+    assertThat(status, is(gov.cms.madie.models.access.UserStatus.ACTIVE));
   }
 
   @Test
@@ -188,30 +194,31 @@ class UserServiceTest {
     // given
     when(harpConfig.getProgramName()).thenReturn("MADiE");
     UserRolesResponse response = UserRolesResponse.builder().userRoles(List.of()).build();
+    HarpResponseWrapper<UserRolesResponse> wrapper = HarpResponseWrapper.<UserRolesResponse>builder()
+        .response(response)
+        .statusCode(HttpStatus.OK)
+        .build();
     // when
-    var status = userService.getStatusForRoles(response);
+    var status = userService.getStatusForRoles(wrapper);
     // then
-    assertThat(
-        "Status should be DEACTIVATED when no roles",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
   }
 
   @Test
   void getStatusForRolesReturnsDeactivatedWhenNoMatchingProgramName() {
     // given
     when(harpConfig.getProgramName()).thenReturn("MADiE");
-    UserRolesResponse response =
-        UserRolesResponse.builder()
-            .userRoles(List.of(UserRole.builder().programName("OTHER").build()))
-            .build();
+    UserRolesResponse response = UserRolesResponse.builder()
+        .userRoles(List.of(UserRole.builder().programName("OTHER").build()))
+        .build();
+    HarpResponseWrapper<UserRolesResponse> wrapper = HarpResponseWrapper.<UserRolesResponse>builder()
+        .response(response)
+        .statusCode(HttpStatus.OK)
+        .build();
     // when
-    var status = userService.getStatusForRoles(response);
+    var status = userService.getStatusForRoles(wrapper);
     // then
-    assertThat(
-        "Status should be DEACTIVATED when no matching program name",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
   }
 
   @Test
@@ -220,22 +227,40 @@ class UserServiceTest {
     // when
     var status = userService.getStatusForRoles(null);
     // then
-    assertThat(
-        "Status should be DEACTIVATED when response is null",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
   }
 
   @Test
   void getStatusForRolesReturnsDeactivatedWhenUserRolesIsNull() {
     // given
     UserRolesResponse response = UserRolesResponse.builder().userRoles(null).build();
+    HarpResponseWrapper<UserRolesResponse> wrapper = HarpResponseWrapper.<UserRolesResponse>builder()
+        .response(response)
+        .statusCode(HttpStatus.OK)
+        .build();
     // when
-    var status = userService.getStatusForRoles(response);
+    var status = userService.getStatusForRoles(wrapper);
     // then
-    assertThat(
-        "Status should be DEACTIVATED when userRoles is null",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+  }
+
+  @Test
+  void getStatusForRolesReturnsDeactivatedForRoleCreation027Error() {
+    HarpResponseWrapper<UserRolesResponse> wrapper = HarpResponseWrapper.<UserRolesResponse>builder()
+        .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+        .error(gov.cms.madie.user.dto.HarpErrorResponse.builder().errorCode("ERR-ROLECREATION-027").build())
+        .build();
+    var status = userService.getStatusForRoles(wrapper);
+    assertThat(status, is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+  }
+
+  @Test
+  void getStatusForRolesReturnsErrorSuspendedForOtherErrorCodes() {
+    HarpResponseWrapper<UserRolesResponse> wrapper = HarpResponseWrapper.<UserRolesResponse>builder()
+        .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+        .error(gov.cms.madie.user.dto.HarpErrorResponse.builder().errorCode("ERR-OTHER").build())
+        .build();
+    var status = userService.getStatusForRoles(wrapper);
+    assertThat(status, is(gov.cms.madie.models.access.UserStatus.ERROR_SUSPENDED));
   }
 }
