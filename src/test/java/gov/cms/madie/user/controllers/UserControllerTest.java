@@ -147,15 +147,6 @@ class UserControllerTest {
   }
 
   @Test
-  void refreshAllUsersReturnsAccepted() {
-    // when
-    ResponseEntity<Object> response = userController.refreshAllUsers(principal);
-    // then
-    assertThat(response.getStatusCode().value(), is(202));
-    assertThat(response.getBody(), is("User refresh job accepted"));
-  }
-
-  @Test
   void getUserDetailsReturnsUserDetailsDto() {
     // given
     UserDetailsDto details = UserDetailsDto.builder().harpId("123").build();

@@ -59,12 +59,6 @@ public class UserController {
     return ResponseEntity.ok("User report coming soon");
   }
 
-  @PutMapping("/all-users-refresh")
-  public ResponseEntity<Object> refreshAllUsers(Principal principal) {
-    log.info("User [{}] - Kicked off refresh of all users", principal.getName());
-    return ResponseEntity.accepted().body("User refresh job accepted");
-  }
-
   @GetMapping("/{harpId}/details")
   public ResponseEntity<UserDetailsDto> getUserDetails(
       @PathVariable String harpId, Principal principal) {
