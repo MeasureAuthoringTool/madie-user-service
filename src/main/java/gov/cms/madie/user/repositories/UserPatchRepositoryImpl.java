@@ -66,7 +66,7 @@ public class UserPatchRepositoryImpl implements UserPatchRepository {
       return UpdateResult.unacknowledged();
     }
 
-    Query query = Query.query(Criteria.where("harpId").is(harpId));
+    Query query = Query.query(Criteria.where("harpId").is(harpId.toLowerCase()));
     Update update = new Update();
     updates.forEach(update::set);
 
