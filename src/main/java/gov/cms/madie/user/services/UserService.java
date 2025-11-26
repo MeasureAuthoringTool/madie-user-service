@@ -198,8 +198,7 @@ public class UserService {
         return;
       }
 
-      MadieUser existingUser =
-          userRepository.findByHarpId(harpId).orElse(MadieUser.builder().harpId(harpId).build());
+      MadieUser existingUser = getUserByHarpId(harpId);
       Map<String, Object> updates = prepareUpdate(existingUser, updatedUser);
 
       if (!CollectionUtils.isEmpty(updates)) {
