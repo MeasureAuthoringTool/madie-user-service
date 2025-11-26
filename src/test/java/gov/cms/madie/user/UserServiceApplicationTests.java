@@ -60,17 +60,25 @@ class UserServiceApplicationTests {
 
   @Test
   void corsHeadersArePresentForAllowedOrigin() throws Exception {
-    mockMvc
-        .perform(MockMvcRequestBuilders.get("/").header("Origin", "http://localhost:9000"))
-        .andExpect(
-            MockMvcResultMatchers.header()
-                .string("Access-Control-Allow-Origin", "http://localhost:9000"));
+    var result =
+        mockMvc
+            .perform(MockMvcRequestBuilders.get("/").header("Origin", "http://localhost:9000"))
+            .andExpect(
+                MockMvcResultMatchers.header()
+                    .string("Access-Control-Allow-Origin", "http://localhost:9000"))
+            .andReturn();
+    String corsHeader = result.getResponse().getHeader("Access-Control-Allow-Origin");
+    assertThat(corsHeader, is("http://localhost:9000"));
   }
 
   @Test
   void corsHeadersAreNotPresentForDisallowedOrigin() throws Exception {
-    mockMvc
-        .perform(MockMvcRequestBuilders.get("/").header("Origin", "http://notallowed.com"))
-        .andExpect(MockMvcResultMatchers.header().doesNotExist("Access-Control-Allow-Origin"));
+    var result =
+        mockMvc
+            .perform(MockMvcRequestBuilders.get("/").header("Origin", "http://notallowed.com"))
+            .andExpect(MockMvcResultMatchers.header().doesNotExist("Access-Control-Allow-Origin"))
+            .andReturn();
+    String corsHeader = result.getResponse().getHeader("Access-Control-Allow-Origin");
+    assertThat(corsHeader, is((String) null));
   }
 }

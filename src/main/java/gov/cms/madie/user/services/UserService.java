@@ -295,35 +295,6 @@ public class UserService {
   }
 
   /**
-   * Determines the UserStatus based on the response from the HARP API when fetching user roles. It
-   * checks for specific error codes and messages to determine if the user is deactivated or
-   * suspended, and otherwise checks if the user has an active role in the specified program.
-   *
-   * @param responseWrapper the response wrapper containing the UserRolesResponse and any exceptions
-   * @return UserStatus.ACTIVE if user has active roles, UserStatus.DEACTIVATED otherwise
-   */
-  public UserStatus getStatusForRoles(HarpResponseWrapper<UserRolesResponse> responseWrapper) {
-    if (responseWrapper == null || !responseWrapper.isSuccess()) {
-      if (responseWrapper != null
-          && responseWrapper.getError() != null
-          && "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
-        return UserStatus.DEACTIVATED;
-      } else {
-        return UserStatus.ERROR_SUSPENDED;
-      }
-    }
-    UserRolesResponse userRolesResponse = responseWrapper.getResponse();
-    if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) {
-      return UserStatus.DEACTIVATED;
-    }
-    String programName = harpConfig.getProgramName();
-    boolean hasActiveRole =
-        userRolesResponse.getUserRoles().stream()
-            .anyMatch(role -> programName.equals(role.getProgramName()));
-    return hasActiveRole ? UserStatus.ACTIVE : UserStatus.DEACTIVATED;
-  }
-
-  /**
    * Utility method to get the most recent startDate from a UserRolesResponse.
    *
    * @param userRolesResponse the response containing user roles
