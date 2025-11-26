@@ -55,30 +55,28 @@ public class UserService {
     TokenResponse token = tokenManager.getCurrentToken();
     MadieUser.MadieUserBuilder madieUserBuilder = MadieUser.builder().harpId(harpId);
     if (token == null || StringUtils.isBlank(token.getAccessToken())) {
-      // bad things happened
       log.info("Unable to refresh user roles for HARP ID: {} - no token received", harpId);
-      // for now, do not block user login
     } else {
       HarpResponseWrapper<UserRolesResponse> responseWrapper =
           harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
-      UserRolesResponse userRolesResponse = responseWrapper.getResponse();
       return userRepository.loginUser(
-          MadieUser.builder()
-              .harpId(harpId)
-              .accessStartAt(getMostRecentStartDate(userRolesResponse))
-              .status(getStatusForRoles(responseWrapper))
-              .roles(
-                  userRolesResponse.getUserRoles().stream()
-                      .map(
-                          role ->
-                              HarpRole.builder()
-                                  .role(role.getDisplayName())
-                                  .roleType(role.getRoleType())
-                                  .build())
-                      .toList())
-              .build());
+          buildMadieUser(null, responseWrapper));
     }
     return madieUserBuilder.build();
+  }
+
+  private List<HarpRole> harpRolesToMadieRoleList(UserRolesResponse userRolesResponse) {
+    String programName = harpConfig.getProgramName();
+    if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) return List.of();
+    return userRolesResponse.getUserRoles().stream()
+            .filter(userRole ->
+              programName.equalsIgnoreCase(userRole.getProgramName())
+                && "Active".equalsIgnoreCase(userRole.getStatus()))
+            .map(role -> HarpRole.builder()
+                    .role(role.getDisplayName())
+                    .roleType(role.getRoleType())
+                    .build())
+            .toList();
   }
 
   @Cacheable("users")
@@ -186,10 +184,10 @@ public class UserService {
       Map<String, UserDetail> detailsMap,
       UserUpdatesJobResultDto result) {
     try {
-      UserRolesResponse rolesResponse =
+      HarpResponseWrapper<UserRolesResponse> responseWrapper =
           harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
       MadieUser updatedUser =
-          buildMadieUser(detailsMap.get(harpId.toLowerCase(Locale.ROOT)), rolesResponse);
+          buildMadieUser(detailsMap.get(harpId.toLowerCase(Locale.ROOT)), responseWrapper);
 
       if (updatedUser == null) {
         log.warn("No user data returned from HARP for HARP ID: {}", harpId);
@@ -212,41 +210,35 @@ public class UserService {
     }
   }
 
-  private MadieUser buildMadieUser(UserDetail detail, UserRolesResponse rolesResponse) {
-    // Update user details from HARP response
-    MadieUser.MadieUserBuilder userBuilder =
-        MadieUser.builder()
-            .email(detail.getEmail())
-            .firstName(detail.getFirstname())
-            .lastName(detail.getLastname())
-            .displayName(detail.getDisplayname())
-            .accessStartAt(getMostRecentStartDate(rolesResponse))
-            .createdAt(convertoInstant(detail.getCreatedate()))
-            .lastModifiedAt(convertoInstant(detail.getUpdatedate()));
-
-    if (rolesResponse != null && !CollectionUtils.isEmpty(rolesResponse.getUserRoles())) {
-      String programName = harpConfig.getProgramName();
-      List<HarpRole> roles =
-          rolesResponse.getUserRoles().stream()
-              .filter(
-                  userRole ->
-                      programName.equalsIgnoreCase(userRole.getProgramName())
-                          && "Active".equalsIgnoreCase(userRole.getStatus()))
-              .map(
-                  role ->
-                      HarpRole.builder()
-                          .role(role.getDisplayName())
-                          .roleType(role.getRoleType())
-                          .build())
-              .collect(Collectors.toList());
-      if (!CollectionUtils.isEmpty(roles)) {
-        userBuilder.status(UserStatus.ACTIVE).roles(roles);
-        return userBuilder.build();
-      }
+  /* package-private for testability */
+  MadieUser buildMadieUser(UserDetail detail, HarpResponseWrapper<UserRolesResponse> responseWrapper) {
+    MadieUser.MadieUserBuilder userBuilder = MadieUser.builder();
+    if (detail != null) {
+      userBuilder
+          .email(detail.getEmail())
+          .firstName(detail.getFirstname())
+          .lastName(detail.getLastname())
+          .displayName(detail.getDisplayname())
+          .createdAt(convertoInstant(detail.getCreatedate()))
+          .lastModifiedAt(convertoInstant(detail.getUpdatedate()));
     }
-    // No active MADiE roles found, deactivate user
-    userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
-
+    if (responseWrapper == null || !responseWrapper.isSuccess()) {
+      if (responseWrapper != null && responseWrapper.getError() != null &&
+          "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
+        userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
+      } else {
+        userBuilder.status(UserStatus.ERROR_SUSPENDED).roles(List.of());
+      }
+      return userBuilder.build();
+    }
+    UserRolesResponse rolesResponse = responseWrapper.getResponse();
+    List<HarpRole> roles = harpRolesToMadieRoleList(rolesResponse);
+    if (!CollectionUtils.isEmpty(roles)) {
+      userBuilder.status(UserStatus.ACTIVE).roles(roles)
+          .accessStartAt(getMostRecentStartDate(rolesResponse));
+    } else {
+      userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
+    }
     return userBuilder.build();
   }
 
