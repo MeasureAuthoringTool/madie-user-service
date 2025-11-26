@@ -8,10 +8,10 @@ import gov.cms.madie.user.config.HarpConfig;
 import gov.cms.madie.user.dto.TokenResponse;
 import gov.cms.madie.user.dto.UserRolesResponse;
 import gov.cms.madie.user.repositories.UserRepository;
-import io.micrometer.common.util.StringUtils;
 import gov.cms.madie.user.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -38,12 +38,14 @@ public class UserService {
       return false;
     }
 
-    return userRepository.countByHarpIdIn(harpIds) == harpIds.size();
+    return userRepository.countByHarpIdIn(
+            harpIds.stream().map(StringUtils::toRootLowerCase).toList())
+        == harpIds.size();
   }
 
   public MadieUser getUserByHarpId(String harpId) {
     return userRepository
-        .findByHarpId(harpId)
+        .findByHarpId(StringUtils.toRootLowerCase(harpId))
         .orElseGet(
             () -> {
               log.warn("User not found in database for HARP ID: {}", harpId);
@@ -83,7 +85,7 @@ public class UserService {
   @Cacheable("users")
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
     return userRepository
-        .findByHarpId(harpId)
+        .findByHarpId(StringUtils.toRootLowerCase(harpId))
         .map(
             user ->
                 UserDetailsDto.builder()
@@ -212,7 +214,8 @@ public class UserService {
   }
 
   /* package-private for testability */
-  MadieUser buildMadieUser(String harpId, UserDetail detail, HarpResponseWrapper<UserRolesResponse> responseWrapper) {
+  MadieUser buildMadieUser(
+      String harpId, UserDetail detail, HarpResponseWrapper<UserRolesResponse> responseWrapper) {
     MadieUser.MadieUserBuilder userBuilder = MadieUser.builder();
     userBuilder.harpId(harpId.toLowerCase());
     if (detail != null) {
@@ -225,8 +228,9 @@ public class UserService {
           .lastModifiedAt(convertoInstant(detail.getUpdatedate()));
     }
     if (responseWrapper == null || !responseWrapper.isSuccess()) {
-      if (responseWrapper != null && responseWrapper.getError() != null &&
-          "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
+      if (responseWrapper != null
+          && responseWrapper.getError() != null
+          && "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
         userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
       } else {
         userBuilder.status(UserStatus.ERROR_SUSPENDED).roles(List.of());
@@ -236,7 +240,9 @@ public class UserService {
     UserRolesResponse rolesResponse = responseWrapper.getResponse();
     List<HarpRole> roles = harpRolesToMadieRoleList(rolesResponse);
     if (!CollectionUtils.isEmpty(roles)) {
-      userBuilder.status(UserStatus.ACTIVE).roles(roles)
+      userBuilder
+          .status(UserStatus.ACTIVE)
+          .roles(roles)
           .accessStartAt(getMostRecentStartDate(rolesResponse));
     } else {
       userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());

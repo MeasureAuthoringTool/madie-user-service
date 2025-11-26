@@ -14,10 +14,7 @@ import gov.cms.madie.user.dto.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentMatchers;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
@@ -579,6 +576,46 @@ class UserServiceTest {
     assertThat(result.getUpdatedHarpIds(), empty());
     assertThat(result.getFailedHarpIds(), hasItem("nulluser"));
     verify(userRepository, never()).updateMadieUser(anyMap(), eq("nulluser"));
+  }
+
+  @Test
+  void updateUsersFromHarpHandlesMixedCaseHarpId() {
+    List<String> harpIds = List.of("MiXeDcAsE");
+    UserDetailsResponse detailsResponse =
+        createUserDetailsResponse("mixedcase", "mixed@example.com", "Mixed", "Case");
+    UserRolesResponse rolesResponse = createUserRolesResponse("active", "Admin", "ADMIN");
+    MadieUser existingUser = createExistingUser();
+    setupMocksForSuccessfulUpdate(harpIds, detailsResponse, rolesResponse, existingUser);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+    assertThat(results.getUpdatedHarpIds(), hasItem("MiXeDcAsE"));
+    verify(userRepository).updateMadieUser(anyMap(), eq("MiXeDcAsE"));
+  }
+
+  @Test
+  void getUserByHarpIdFindsUserRegardlessOfCase() {
+    MadieUser user = createExistingUser();
+    when(userRepository.findByHarpId("harper")).thenReturn(Optional.of(user));
+    MadieUser result = userService.getUserByHarpId("HARPER");
+    assertThat(result.getHarpId(), is("harper"));
+  }
+
+  @Test
+  void refreshUserRolesAndLoginHandlesMixedCaseHarpId() {
+    String harpId = "MiXeDcAsE";
+    when(tokenManager.getCurrentToken())
+        .thenReturn(TokenResponse.builder().accessToken("token").build());
+    UserRolesResponse rolesResponse = createUserRolesResponse("active", "Admin", "ADMIN");
+    HarpResponseWrapper<UserRolesResponse> wrapper =
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .response(rolesResponse)
+            .statusCode(HttpStatus.OK)
+            .build();
+    when(harpProxyService.fetchUserRoles(eq(harpId), anyString())).thenReturn(wrapper);
+    when(harpConfig.getProgramName()).thenReturn("MADiE");
+    MadieUser expected = MadieUser.builder().harpId(harpId).build();
+    when(userRepository.loginUser(Mockito.any(MadieUser.class))).thenReturn(expected);
+    MadieUser result = userService.refreshUserRolesAndLogin(harpId);
+    assertThat(result.getHarpId(), is(harpId));
   }
 
   // Helper method for test setup
