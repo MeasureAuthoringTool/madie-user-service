@@ -29,8 +29,17 @@ import java.util.Optional;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.anyMap;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -613,7 +622,7 @@ class UserServiceTest {
     when(harpProxyService.fetchUserRoles(eq(harpId), anyString())).thenReturn(wrapper);
     when(harpConfig.getProgramName()).thenReturn("MADiE");
     MadieUser expected = MadieUser.builder().harpId(harpId).build();
-    when(userRepository.loginUser(Mockito.any(MadieUser.class))).thenReturn(expected);
+    when(userRepository.loginUser(any(MadieUser.class))).thenReturn(expected);
     MadieUser result = userService.refreshUserRolesAndLogin(harpId);
     assertThat(result.getHarpId(), is(harpId));
   }
