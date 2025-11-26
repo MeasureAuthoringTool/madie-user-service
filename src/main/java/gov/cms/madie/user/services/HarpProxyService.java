@@ -91,7 +91,8 @@ public class HarpProxyService {
   public HarpResponseWrapper<UserRolesResponse> fetchUserRoles(String harpId, String harpToken) {
     String url = harpConfig.getBaseUrl() + harpConfig.getUserRoles().getUri() + "/getUserRoles";
     HttpHeaders headers = createApiHeaders(harpToken);
-    HarpResponseWrapper.HarpResponseWrapperBuilder<UserRolesResponse> wrapperBuilder = HarpResponseWrapper.builder();
+    HarpResponseWrapper.HarpResponseWrapperBuilder<UserRolesResponse> wrapperBuilder =
+        HarpResponseWrapper.builder();
     UserRolesRequest body =
         UserRolesRequest.builder()
             .userName(harpId)
@@ -100,17 +101,20 @@ public class HarpProxyService {
             .build();
     HttpEntity<UserRolesRequest> requestEntity = new HttpEntity<>(body, headers);
     try {
-      ResponseEntity<UserRolesResponse> responseEntity = harpRestTemplate.postForEntity(url, requestEntity, UserRolesResponse.class);
-      wrapperBuilder
-              .response(responseEntity.getBody())
-              .statusCode(responseEntity.getStatusCode());
+      ResponseEntity<UserRolesResponse> responseEntity =
+          harpRestTemplate.postForEntity(url, requestEntity, UserRolesResponse.class);
+      wrapperBuilder.response(responseEntity.getBody()).statusCode(responseEntity.getStatusCode());
     } catch (HttpStatusCodeException ex) {
       String responseBody = ex.getResponseBodyAsString();
       try {
         wrapperBuilder.statusCode(ex.getStatusCode()).exception(ex);
         wrapperBuilder.error(objectMapper.readValue(responseBody, HarpErrorResponse.class));
       } catch (Exception parseEx) {
-        log.error("Unable to parse error response from HARP API while fetching roles for user [{}]: {}", harpId, responseBody, parseEx);
+        log.error(
+            "Unable to parse error response from HARP API while fetching roles for user [{}]: {}",
+            harpId,
+            responseBody,
+            parseEx);
       }
     }
     return wrapperBuilder.build();

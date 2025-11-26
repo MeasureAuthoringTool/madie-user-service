@@ -12,12 +12,12 @@ import org.springframework.web.client.HttpStatusCodeException;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HarpResponseWrapper<T> {
-    private HttpStatusCode statusCode;
-    private HarpErrorResponse error;
-    private HttpStatusCodeException exception;
-    private T response;
+  private HttpStatusCode statusCode;
+  private HarpErrorResponse error;
+  private HttpStatusCodeException exception;
+  private T response;
 
-    public boolean isSuccess() {
-        return statusCode != null && statusCode.is2xxSuccessful() && error == null && exception == null;
-    }
+  public boolean isSuccess() {
+    return statusCode != null && statusCode.is2xxSuccessful() && error == null && exception == null;
+  }
 }

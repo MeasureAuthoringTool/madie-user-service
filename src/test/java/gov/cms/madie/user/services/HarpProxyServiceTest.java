@@ -17,7 +17,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
 
 import java.util.List;
 
@@ -88,10 +87,10 @@ class HarpProxyServiceTest {
         .thenReturn(HarpConfig.UserRoles.builder().uri("/userRoleCreationApi").build());
     UserRolesResponse userRolesResponse = UserRolesResponse.builder().success(true).build();
     HarpResponseWrapper<UserRolesResponse> expected =
-            HarpResponseWrapper.<UserRolesResponse>builder()
-                    .response(userRolesResponse)
-                    .statusCode(HttpStatus.OK)
-                    .build();
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .response(userRolesResponse)
+            .statusCode(HttpStatus.OK)
+            .build();
     when(harpRestTemplate.postForEntity(anyString(), any(), eq(UserRolesResponse.class)))
         .thenReturn(ResponseEntity.ok(userRolesResponse));
     // when
@@ -106,16 +105,26 @@ class HarpProxyServiceTest {
     String token = "accessToken";
     when(harpConfig.getUserRoles())
         .thenReturn(HarpConfig.UserRoles.builder().uri("/userRoleCreationApi").build());
-    HarpErrorResponse errorResponse = HarpErrorResponse.builder()
-        .errorCode("ERR-ROLECREATION-027")
-        .errorSummary("User not found")
-        .details("user id1 not found")
-        .build();
-    String errorJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorResponse);
-    HttpStatusCodeException ex = new HttpStatusCodeException(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", new HttpHeaders(), errorJson.getBytes(), null) {};
+    HarpErrorResponse errorResponse =
+        HarpErrorResponse.builder()
+            .errorCode("ERR-ROLECREATION-027")
+            .errorSummary("User not found")
+            .details("user id1 not found")
+            .build();
+    String errorJson =
+        new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorResponse);
+    HttpStatusCodeException ex =
+        new HttpStatusCodeException(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Internal Server Error",
+            new HttpHeaders(),
+            errorJson.getBytes(),
+            null) {};
     when(harpRestTemplate.postForEntity(anyString(), any(), eq(UserRolesResponse.class)))
         .thenThrow(ex);
-    HarpProxyService service = new HarpProxyService(harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
+    HarpProxyService service =
+        new HarpProxyService(
+            harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
     HarpResponseWrapper<UserRolesResponse> result = service.fetchUserRoles(harpId, token);
     assertThat(result.getError().getErrorCode(), is("ERR-ROLECREATION-027"));
     assertThat(result.getStatusCode(), is(HttpStatus.INTERNAL_SERVER_ERROR));
@@ -128,16 +137,26 @@ class HarpProxyServiceTest {
     String token = "accessToken";
     when(harpConfig.getUserRoles())
         .thenReturn(HarpConfig.UserRoles.builder().uri("/userRoleCreationApi").build());
-    HarpErrorResponse errorResponse = HarpErrorResponse.builder()
-        .errorCode("ERR-OTHER")
-        .errorSummary("Some other error")
-        .details("unexpected error")
-        .build();
-    String errorJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorResponse);
-    HttpStatusCodeException ex = new HttpStatusCodeException(HttpStatus.BAD_REQUEST, "Bad Request", new HttpHeaders(), errorJson.getBytes(), null) {};
+    HarpErrorResponse errorResponse =
+        HarpErrorResponse.builder()
+            .errorCode("ERR-OTHER")
+            .errorSummary("Some other error")
+            .details("unexpected error")
+            .build();
+    String errorJson =
+        new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorResponse);
+    HttpStatusCodeException ex =
+        new HttpStatusCodeException(
+            HttpStatus.BAD_REQUEST,
+            "Bad Request",
+            new HttpHeaders(),
+            errorJson.getBytes(),
+            null) {};
     when(harpRestTemplate.postForEntity(anyString(), any(), eq(UserRolesResponse.class)))
         .thenThrow(ex);
-    HarpProxyService service = new HarpProxyService(harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
+    HarpProxyService service =
+        new HarpProxyService(
+            harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
     HarpResponseWrapper<UserRolesResponse> result = service.fetchUserRoles(harpId, token);
     assertThat(result.getError().getErrorCode(), is("ERR-OTHER"));
     assertThat(result.getStatusCode(), is(HttpStatus.BAD_REQUEST));
@@ -151,10 +170,18 @@ class HarpProxyServiceTest {
     when(harpConfig.getUserRoles())
         .thenReturn(HarpConfig.UserRoles.builder().uri("/userRoleCreationApi").build());
     String errorJson = "not a json";
-    HttpStatusCodeException ex = new HttpStatusCodeException(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", new HttpHeaders(), errorJson.getBytes(), null) {};
+    HttpStatusCodeException ex =
+        new HttpStatusCodeException(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Internal Server Error",
+            new HttpHeaders(),
+            errorJson.getBytes(),
+            null) {};
     when(harpRestTemplate.postForEntity(anyString(), any(), eq(UserRolesResponse.class)))
         .thenThrow(ex);
-    HarpProxyService service = new HarpProxyService(harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
+    HarpProxyService service =
+        new HarpProxyService(
+            harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
     HarpResponseWrapper<UserRolesResponse> result = service.fetchUserRoles(harpId, token);
     assertThat(result.getError(), is(nullValue()));
     assertThat(result.getStatusCode(), is(HttpStatus.INTERNAL_SERVER_ERROR));

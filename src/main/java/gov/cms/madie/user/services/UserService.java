@@ -59,24 +59,25 @@ public class UserService {
     } else {
       HarpResponseWrapper<UserRolesResponse> responseWrapper =
           harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
-      return userRepository.loginUser(
-          buildMadieUser(null, responseWrapper));
+      return userRepository.loginUser(buildMadieUser(null, responseWrapper));
     }
     return madieUserBuilder.build();
   }
 
   private List<HarpRole> harpRolesToMadieRoleList(UserRolesResponse userRolesResponse) {
     String programName = harpConfig.getProgramName();
-    if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) return List.of();
+    if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) {
+      return List.of();
+    }
     return userRolesResponse.getUserRoles().stream()
-            .filter(userRole ->
-              programName.equalsIgnoreCase(userRole.getProgramName())
-                && "Active".equalsIgnoreCase(userRole.getStatus()))
-            .map(role -> HarpRole.builder()
-                    .role(role.getDisplayName())
-                    .roleType(role.getRoleType())
-                    .build())
-            .toList();
+        .filter(
+            userRole ->
+                programName.equalsIgnoreCase(userRole.getProgramName())
+                    && "Active".equalsIgnoreCase(userRole.getStatus()))
+        .map(
+            role ->
+                HarpRole.builder().role(role.getDisplayName()).roleType(role.getRoleType()).build())
+        .toList();
   }
 
   @Cacheable("users")
@@ -211,7 +212,8 @@ public class UserService {
   }
 
   /* package-private for testability */
-  MadieUser buildMadieUser(UserDetail detail, HarpResponseWrapper<UserRolesResponse> responseWrapper) {
+  MadieUser buildMadieUser(
+      UserDetail detail, HarpResponseWrapper<UserRolesResponse> responseWrapper) {
     MadieUser.MadieUserBuilder userBuilder = MadieUser.builder();
     if (detail != null) {
       userBuilder
@@ -223,8 +225,9 @@ public class UserService {
           .lastModifiedAt(convertoInstant(detail.getUpdatedate()));
     }
     if (responseWrapper == null || !responseWrapper.isSuccess()) {
-      if (responseWrapper != null && responseWrapper.getError() != null &&
-          "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
+      if (responseWrapper != null
+          && responseWrapper.getError() != null
+          && "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
         userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
       } else {
         userBuilder.status(UserStatus.ERROR_SUSPENDED).roles(List.of());
@@ -234,7 +237,9 @@ public class UserService {
     UserRolesResponse rolesResponse = responseWrapper.getResponse();
     List<HarpRole> roles = harpRolesToMadieRoleList(rolesResponse);
     if (!CollectionUtils.isEmpty(roles)) {
-      userBuilder.status(UserStatus.ACTIVE).roles(roles)
+      userBuilder
+          .status(UserStatus.ACTIVE)
+          .roles(roles)
           .accessStartAt(getMostRecentStartDate(rolesResponse));
     } else {
       userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
@@ -290,15 +295,18 @@ public class UserService {
   }
 
   /**
-   * Determines the UserStatus based on the response from the HARP API when fetching user roles. It checks for specific error codes and messages to determine if the user is deactivated or suspended, and otherwise checks if the user has an active role in the specified program.
+   * Determines the UserStatus based on the response from the HARP API when fetching user roles. It
+   * checks for specific error codes and messages to determine if the user is deactivated or
+   * suspended, and otherwise checks if the user has an active role in the specified program.
    *
    * @param responseWrapper the response wrapper containing the UserRolesResponse and any exceptions
    * @return UserStatus.ACTIVE if user has active roles, UserStatus.DEACTIVATED otherwise
    */
   public UserStatus getStatusForRoles(HarpResponseWrapper<UserRolesResponse> responseWrapper) {
     if (responseWrapper == null || !responseWrapper.isSuccess()) {
-      if (responseWrapper != null && responseWrapper.getError() != null &&
-          "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
+      if (responseWrapper != null
+          && responseWrapper.getError() != null
+          && "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
         return UserStatus.DEACTIVATED;
       } else {
         return UserStatus.ERROR_SUSPENDED;
