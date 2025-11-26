@@ -475,7 +475,7 @@ class UserServiceTest {
             .statusCode(HttpStatus.OK)
             .build();
     when(harpConfig.getProgramName()).thenReturn("MADiE");
-    MadieUser user = userService.buildMadieUser(detail, wrapper);
+    MadieUser user = userService.buildMadieUser("activeuser", detail, wrapper);
     assertThat(user.getStatus(), is(UserStatus.ACTIVE));
     assertThat(user.getRoles(), hasSize(1));
     assertThat(user.getRoles().get(0).getRole(), is("MADiE-User"));
@@ -499,7 +499,7 @@ class UserServiceTest {
             .statusCode(HttpStatus.OK)
             .build();
     when(harpConfig.getProgramName()).thenReturn("MADiE");
-    MadieUser user = userService.buildMadieUser(detail, wrapper);
+    MadieUser user = userService.buildMadieUser("inactive", detail, wrapper);
     assertThat(user.getStatus(), is(UserStatus.DEACTIVATED));
     assertThat(user.getRoles(), empty());
   }
@@ -515,7 +515,7 @@ class UserServiceTest {
                     .errorCode("ERR-ROLECREATION-027")
                     .build())
             .build();
-    MadieUser user = userService.buildMadieUser(detail, wrapper);
+    MadieUser user = userService.buildMadieUser("deactivated", detail, wrapper);
     assertThat(user.getStatus(), is(UserStatus.DEACTIVATED));
     assertThat(user.getRoles(), empty());
   }
@@ -529,7 +529,7 @@ class UserServiceTest {
             .error(
                 gov.cms.madie.user.dto.HarpErrorResponse.builder().errorCode("ERR-OTHER").build())
             .build();
-    MadieUser user = userService.buildMadieUser(detail, wrapper);
+    MadieUser user = userService.buildMadieUser("suspended", detail, wrapper);
     assertThat(user.getStatus(), is(UserStatus.ERROR_SUSPENDED));
     assertThat(user.getRoles(), empty());
   }
@@ -537,7 +537,7 @@ class UserServiceTest {
   @Test
   void buildMadieUserReturnsErrorSuspendedForNullWrapper() {
     UserDetail detail = UserDetail.builder().username("nullwrapper").build();
-    MadieUser user = userService.buildMadieUser(detail, null);
+    MadieUser user = userService.buildMadieUser("nullwrapper", detail, null);
     assertThat(user.getStatus(), is(UserStatus.ERROR_SUSPENDED));
     assertThat(user.getRoles(), empty());
   }
@@ -559,7 +559,7 @@ class UserServiceTest {
             .statusCode(HttpStatus.OK)
             .build();
     when(harpConfig.getProgramName()).thenReturn("MADiE");
-    MadieUser user = userService.buildMadieUser(null, wrapper);
+    MadieUser user = userService.buildMadieUser("", null, wrapper);
     assertThat(user.getStatus(), is(UserStatus.ACTIVE));
     assertThat(user.getRoles(), hasSize(1));
   }
@@ -573,7 +573,7 @@ class UserServiceTest {
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     // Spy UserService to force buildMadieUser to return null
     UserService spyService = spy(userService);
-    doReturn(null).when(spyService).buildMadieUser(any(), any());
+    doReturn(null).when(spyService).buildMadieUser(eq("nulluser"), any(), any());
     UserUpdatesJobResultDto result = spyService.updateUsersFromHarp(harpIds);
     // Should not update user, should mark as failed
     assertThat(result.getUpdatedHarpIds(), empty());

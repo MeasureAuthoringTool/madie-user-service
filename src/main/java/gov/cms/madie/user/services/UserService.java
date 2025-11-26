@@ -59,7 +59,7 @@ public class UserService {
     } else {
       HarpResponseWrapper<UserRolesResponse> responseWrapper =
           harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
-      return userRepository.loginUser(buildMadieUser(null, responseWrapper));
+      return userRepository.loginUser(buildMadieUser(harpId, null, responseWrapper));
     }
     return madieUserBuilder.build();
   }
@@ -188,7 +188,7 @@ public class UserService {
       HarpResponseWrapper<UserRolesResponse> responseWrapper =
           harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
       MadieUser updatedUser =
-          buildMadieUser(detailsMap.get(harpId.toLowerCase(Locale.ROOT)), responseWrapper);
+          buildMadieUser(harpId, detailsMap.get(harpId.toLowerCase(Locale.ROOT)), responseWrapper);
 
       if (updatedUser == null) {
         log.warn("No user data returned from HARP for HARP ID: {}", harpId);
@@ -212,9 +212,9 @@ public class UserService {
   }
 
   /* package-private for testability */
-  MadieUser buildMadieUser(
-      UserDetail detail, HarpResponseWrapper<UserRolesResponse> responseWrapper) {
+  MadieUser buildMadieUser(String harpId, UserDetail detail, HarpResponseWrapper<UserRolesResponse> responseWrapper) {
     MadieUser.MadieUserBuilder userBuilder = MadieUser.builder();
+    userBuilder.harpId(harpId.toLowerCase());
     if (detail != null) {
       userBuilder
           .email(detail.getEmail())
@@ -225,9 +225,8 @@ public class UserService {
           .lastModifiedAt(convertoInstant(detail.getUpdatedate()));
     }
     if (responseWrapper == null || !responseWrapper.isSuccess()) {
-      if (responseWrapper != null
-          && responseWrapper.getError() != null
-          && "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
+      if (responseWrapper != null && responseWrapper.getError() != null &&
+          "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
         userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
       } else {
         userBuilder.status(UserStatus.ERROR_SUSPENDED).roles(List.of());
@@ -237,9 +236,7 @@ public class UserService {
     UserRolesResponse rolesResponse = responseWrapper.getResponse();
     List<HarpRole> roles = harpRolesToMadieRoleList(rolesResponse);
     if (!CollectionUtils.isEmpty(roles)) {
-      userBuilder
-          .status(UserStatus.ACTIVE)
-          .roles(roles)
+      userBuilder.status(UserStatus.ACTIVE).roles(roles)
           .accessStartAt(getMostRecentStartDate(rolesResponse));
     } else {
       userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
