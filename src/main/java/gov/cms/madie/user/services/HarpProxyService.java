@@ -1,21 +1,20 @@
 package gov.cms.madie.user.services;
 
 import gov.cms.madie.user.config.HarpConfig;
-import gov.cms.madie.user.dto.TokenRequest;
-import gov.cms.madie.user.dto.TokenResponse;
-import gov.cms.madie.user.dto.UserDetailsRequest;
-import gov.cms.madie.user.dto.UserDetailsResponse;
-import gov.cms.madie.user.dto.UserRolesRequest;
-import gov.cms.madie.user.dto.UserRolesResponse;
+import gov.cms.madie.user.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -28,6 +27,7 @@ public class HarpProxyService {
 
   private final HarpConfig harpConfig;
   private final RestTemplate harpRestTemplate;
+  private final ObjectMapper objectMapper;
 
   /**
    * Fetches an access token from the HARP API using clientId and secret from environment.
@@ -88,21 +88,36 @@ public class HarpProxyService {
    * @param harpToken Access token to authenticate the request.
    * @return UserRolesResponse containing the user roles for the provided HARP ID.
    */
-  public UserRolesResponse fetchUserRoles(String harpId, String harpToken) {
+  public HarpResponseWrapper<UserRolesResponse> fetchUserRoles(String harpId, String harpToken) {
     String url = harpConfig.getBaseUrl() + harpConfig.getUserRoles().getUri() + "/getUserRoles";
     HttpHeaders headers = createApiHeaders(harpToken);
-
+    HarpResponseWrapper.HarpResponseWrapperBuilder<UserRolesResponse> wrapperBuilder =
+        HarpResponseWrapper.builder();
     UserRolesRequest body =
         UserRolesRequest.builder()
             .userName(harpId)
             .adoName(harpConfig.getAdoName())
             .programName(harpConfig.getProgramName())
             .build();
-
     HttpEntity<UserRolesRequest> requestEntity = new HttpEntity<>(body, headers);
-
-    // Make POST call
-    return harpRestTemplate.postForObject(url, requestEntity, UserRolesResponse.class);
+    try {
+      ResponseEntity<UserRolesResponse> responseEntity =
+          harpRestTemplate.postForEntity(url, requestEntity, UserRolesResponse.class);
+      wrapperBuilder.response(responseEntity.getBody()).statusCode(responseEntity.getStatusCode());
+    } catch (HttpStatusCodeException ex) {
+      String responseBody = ex.getResponseBodyAsString();
+      try {
+        wrapperBuilder.statusCode(ex.getStatusCode()).exception(ex);
+        wrapperBuilder.error(objectMapper.readValue(responseBody, HarpErrorResponse.class));
+      } catch (Exception parseEx) {
+        log.error(
+            "Unable to parse error response from HARP API while fetching roles for user [{}]: {}",
+            harpId,
+            responseBody,
+            parseEx);
+      }
+    }
+    return wrapperBuilder.build();
   }
 
   private HttpHeaders createApiHeaders(String harpToken) {

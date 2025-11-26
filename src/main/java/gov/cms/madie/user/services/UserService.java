@@ -8,10 +8,10 @@ import gov.cms.madie.user.config.HarpConfig;
 import gov.cms.madie.user.dto.TokenResponse;
 import gov.cms.madie.user.dto.UserRolesResponse;
 import gov.cms.madie.user.repositories.UserRepository;
-import io.micrometer.common.util.StringUtils;
 import gov.cms.madie.user.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -38,12 +38,14 @@ public class UserService {
       return false;
     }
 
-    return userRepository.countByHarpIdIn(harpIds) == harpIds.size();
+    return userRepository.countByHarpIdIn(
+            harpIds.stream().map(StringUtils::toRootLowerCase).toList())
+        == harpIds.size();
   }
 
   public MadieUser getUserByHarpId(String harpId) {
     return userRepository
-        .findByHarpId(harpId)
+        .findByHarpId(StringUtils.toRootLowerCase(harpId))
         .orElseGet(
             () -> {
               log.warn("User not found in database for HARP ID: {}", harpId);
@@ -55,36 +57,35 @@ public class UserService {
     TokenResponse token = tokenManager.getCurrentToken();
     MadieUser.MadieUserBuilder madieUserBuilder = MadieUser.builder().harpId(harpId);
     if (token == null || StringUtils.isBlank(token.getAccessToken())) {
-      // bad things happened
       log.info("Unable to refresh user roles for HARP ID: {} - no token received", harpId);
-      // for now, do not block user login
     } else {
-      UserRolesResponse userRolesResponse =
+      HarpResponseWrapper<UserRolesResponse> responseWrapper =
           harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
-
-      return userRepository.loginUser(
-          MadieUser.builder()
-              .harpId(harpId)
-              .accessStartAt(getMostRecentStartDate(userRolesResponse))
-              .status(getStatusForRoles(userRolesResponse))
-              .roles(
-                  userRolesResponse.getUserRoles().stream()
-                      .map(
-                          role ->
-                              HarpRole.builder()
-                                  .role(role.getDisplayName())
-                                  .roleType(role.getRoleType())
-                                  .build())
-                      .toList())
-              .build());
+      return userRepository.loginUser(buildMadieUser(harpId, null, responseWrapper));
     }
     return madieUserBuilder.build();
+  }
+
+  private List<HarpRole> harpRolesToMadieRoleList(UserRolesResponse userRolesResponse) {
+    String programName = harpConfig.getProgramName();
+    if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) {
+      return List.of();
+    }
+    return userRolesResponse.getUserRoles().stream()
+        .filter(
+            userRole ->
+                programName.equalsIgnoreCase(userRole.getProgramName())
+                    && "Active".equalsIgnoreCase(userRole.getStatus()))
+        .map(
+            role ->
+                HarpRole.builder().role(role.getDisplayName()).roleType(role.getRoleType()).build())
+        .toList();
   }
 
   @Cacheable("users")
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
     return userRepository
-        .findByHarpId(harpId)
+        .findByHarpId(StringUtils.toRootLowerCase(harpId))
         .map(
             user ->
                 UserDetailsDto.builder()
@@ -186,10 +187,10 @@ public class UserService {
       Map<String, UserDetail> detailsMap,
       UserUpdatesJobResultDto result) {
     try {
-      UserRolesResponse rolesResponse =
+      HarpResponseWrapper<UserRolesResponse> responseWrapper =
           harpProxyService.fetchUserRoles(harpId, token.getAccessToken());
       MadieUser updatedUser =
-          buildMadieUser(detailsMap.get(harpId.toLowerCase(Locale.ROOT)), rolesResponse);
+          buildMadieUser(harpId, detailsMap.get(harpId.toLowerCase(Locale.ROOT)), responseWrapper);
 
       if (updatedUser == null) {
         log.warn("No user data returned from HARP for HARP ID: {}", harpId);
@@ -212,41 +213,40 @@ public class UserService {
     }
   }
 
-  private MadieUser buildMadieUser(UserDetail detail, UserRolesResponse rolesResponse) {
-    // Update user details from HARP response
-    MadieUser.MadieUserBuilder userBuilder =
-        MadieUser.builder()
-            .email(detail.getEmail())
-            .firstName(detail.getFirstname())
-            .lastName(detail.getLastname())
-            .displayName(detail.getDisplayname())
-            .accessStartAt(getMostRecentStartDate(rolesResponse))
-            .createdAt(convertoInstant(detail.getCreatedate()))
-            .lastModifiedAt(convertoInstant(detail.getUpdatedate()));
-
-    if (rolesResponse != null && !CollectionUtils.isEmpty(rolesResponse.getUserRoles())) {
-      String programName = harpConfig.getProgramName();
-      List<HarpRole> roles =
-          rolesResponse.getUserRoles().stream()
-              .filter(
-                  userRole ->
-                      programName.equalsIgnoreCase(userRole.getProgramName())
-                          && "Active".equalsIgnoreCase(userRole.getStatus()))
-              .map(
-                  role ->
-                      HarpRole.builder()
-                          .role(role.getDisplayName())
-                          .roleType(role.getRoleType())
-                          .build())
-              .collect(Collectors.toList());
-      if (!CollectionUtils.isEmpty(roles)) {
-        userBuilder.status(UserStatus.ACTIVE).roles(roles);
-        return userBuilder.build();
-      }
+  /* package-private for testability */
+  MadieUser buildMadieUser(
+      String harpId, UserDetail detail, HarpResponseWrapper<UserRolesResponse> responseWrapper) {
+    MadieUser.MadieUserBuilder userBuilder = MadieUser.builder();
+    userBuilder.harpId(harpId.toLowerCase());
+    if (detail != null) {
+      userBuilder
+          .email(detail.getEmail())
+          .firstName(detail.getFirstname())
+          .lastName(detail.getLastname())
+          .displayName(detail.getDisplayname())
+          .createdAt(convertoInstant(detail.getCreatedate()))
+          .lastModifiedAt(convertoInstant(detail.getUpdatedate()));
     }
-    // No active MADiE roles found, deactivate user
-    userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
-
+    if (responseWrapper == null || !responseWrapper.isSuccess()) {
+      if (responseWrapper != null
+          && responseWrapper.getError() != null
+          && "ERR-ROLECREATION-027".equals(responseWrapper.getError().getErrorCode())) {
+        userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
+      } else {
+        userBuilder.status(UserStatus.ERROR_SUSPENDED).roles(List.of());
+      }
+      return userBuilder.build();
+    }
+    UserRolesResponse rolesResponse = responseWrapper.getResponse();
+    List<HarpRole> roles = harpRolesToMadieRoleList(rolesResponse);
+    if (!CollectionUtils.isEmpty(roles)) {
+      userBuilder
+          .status(UserStatus.ACTIVE)
+          .roles(roles)
+          .accessStartAt(getMostRecentStartDate(rolesResponse));
+    } else {
+      userBuilder.status(UserStatus.DEACTIVATED).roles(List.of());
+    }
     return userBuilder.build();
   }
 
@@ -295,23 +295,6 @@ public class UserService {
       log.error("Error converting date string to Instant: {}", dateTimeStr, e);
       return null;
     }
-  }
-
-  /**
-   * Determines the user status based on the presence of active roles in the UserRolesResponse.
-   *
-   * @param userRolesResponse the response containing user roles
-   * @return UserStatus.ACTIVE if user has active roles, UserStatus.DEACTIVATED otherwise
-   */
-  public UserStatus getStatusForRoles(UserRolesResponse userRolesResponse) {
-    if (userRolesResponse == null || userRolesResponse.getUserRoles() == null) {
-      return UserStatus.DEACTIVATED;
-    }
-    String programName = harpConfig.getProgramName();
-    boolean hasActiveRole =
-        userRolesResponse.getUserRoles().stream()
-            .anyMatch(role -> programName.equals(role.getProgramName()));
-    return hasActiveRole ? UserStatus.ACTIVE : UserStatus.DEACTIVATED;
   }
 
   /**

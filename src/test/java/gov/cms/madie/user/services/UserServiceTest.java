@@ -5,6 +5,7 @@ import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.config.HarpConfig;
+import gov.cms.madie.user.dto.HarpResponseWrapper;
 import gov.cms.madie.user.dto.TokenResponse;
 import gov.cms.madie.user.dto.UserRole;
 import gov.cms.madie.user.dto.UserRolesResponse;
@@ -13,11 +14,9 @@ import gov.cms.madie.user.dto.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentMatchers;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
 import java.util.List;
@@ -30,8 +29,17 @@ import java.util.Optional;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.anyMap;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -81,14 +89,18 @@ class UserServiceTest {
         .thenReturn(TokenResponse.builder().accessToken("fake.jwt").build());
     when(harpProxyService.fetchUserRoles(harpId, "fake.jwt"))
         .thenReturn(
-            UserRolesResponse.builder()
-                .userRoles(
-                    List.of(
-                        UserRole.builder()
-                            .roleType("Group")
-                            .programName("MADiE")
-                            .displayName("MADiE-User")
-                            .build()))
+            HarpResponseWrapper.<UserRolesResponse>builder()
+                .response(
+                    UserRolesResponse.builder()
+                        .userRoles(
+                            List.of(
+                                UserRole.builder()
+                                    .roleType("Group")
+                                    .programName("MADiE")
+                                    .displayName("MADiE-User")
+                                    .build()))
+                        .build())
+                .statusCode(HttpStatus.OK)
                 .build());
     when(harpConfig.getProgramName()).thenReturn("MADiE");
     when(userRepository.loginUser(ArgumentMatchers.any(MadieUser.class)))
@@ -314,7 +326,12 @@ class UserServiceTest {
 
     when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
-    when(harpProxyService.fetchUserRoles(eq("inactive"), anyString())).thenReturn(rolesResponse);
+    when(harpProxyService.fetchUserRoles(eq("inactive"), anyString()))
+        .thenReturn(
+            HarpResponseWrapper.<UserRolesResponse>builder()
+                .response(rolesResponse)
+                .statusCode(HttpStatus.OK)
+                .build());
     when(userRepository.findByHarpId("inactive")).thenReturn(Optional.of(existingUser));
 
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
@@ -421,80 +438,6 @@ class UserServiceTest {
   }
 
   @Test
-  void getStatusForRolesReturnsActiveWhenMatchingRoleExists() {
-    // given
-    String programName = "MADiE";
-    when(harpConfig.getProgramName()).thenReturn(programName);
-    UserRolesResponse response =
-        UserRolesResponse.builder()
-            .userRoles(List.of(UserRole.builder().programName(programName).build()))
-            .build();
-    // when
-    var status = userService.getStatusForRoles(response);
-    // then
-    assertThat(
-        "Status should be ACTIVE when matching role exists",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.ACTIVE));
-  }
-
-  @Test
-  void getStatusForRolesReturnsDeactivatedWhenNoRoles() {
-    // given
-    when(harpConfig.getProgramName()).thenReturn("MADiE");
-    UserRolesResponse response = UserRolesResponse.builder().userRoles(List.of()).build();
-    // when
-    var status = userService.getStatusForRoles(response);
-    // then
-    assertThat(
-        "Status should be DEACTIVATED when no roles",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
-  }
-
-  @Test
-  void getStatusForRolesReturnsDeactivatedWhenNoMatchingProgramName() {
-    // given
-    when(harpConfig.getProgramName()).thenReturn("MADiE");
-    UserRolesResponse response =
-        UserRolesResponse.builder()
-            .userRoles(List.of(UserRole.builder().programName("OTHER").build()))
-            .build();
-    // when
-    var status = userService.getStatusForRoles(response);
-    // then
-    assertThat(
-        "Status should be DEACTIVATED when no matching program name",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
-  }
-
-  @Test
-  void getStatusForRolesReturnsDeactivatedWhenResponseIsNull() {
-    // given
-    // when
-    var status = userService.getStatusForRoles(null);
-    // then
-    assertThat(
-        "Status should be DEACTIVATED when response is null",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
-  }
-
-  @Test
-  void getStatusForRolesReturnsDeactivatedWhenUserRolesIsNull() {
-    // given
-    UserRolesResponse response = UserRolesResponse.builder().userRoles(null).build();
-    // when
-    var status = userService.getStatusForRoles(response);
-    // then
-    assertThat(
-        "Status should be DEACTIVATED when userRoles is null",
-        status,
-        is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
-  }
-
-  @Test
   void testAreHarpIdsValid() {
     // given
     List<String> harpIds = List.of("harp1", "harp2", "harp3");
@@ -511,8 +454,180 @@ class UserServiceTest {
     assertFalse(userService.areHarpIdsValid(List.of("harp1", "harp2", "harp3")));
   }
 
-  // Helper methods for test setup
+  @Test
+  void buildMadieUserReturnsActiveWithValidRoles() {
+    UserDetail detail =
+        UserDetail.builder()
+            .username("activeuser")
+            .email("active@example.com")
+            .firstname("Active")
+            .lastname("User")
+            .displayname("Active User")
+            .createdate("2025-10-29 13:48:37")
+            .updatedate("2025-10-29 13:48:37")
+            .build();
+    UserRole validRole =
+        UserRole.builder()
+            .programName("MADiE")
+            .roleType("MADiE")
+            .displayName("MADiE-User")
+            .status("Active")
+            .build();
+    UserRolesResponse rolesResponse =
+        UserRolesResponse.builder().userRoles(List.of(validRole)).build();
+    HarpResponseWrapper<UserRolesResponse> wrapper =
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .response(rolesResponse)
+            .statusCode(HttpStatus.OK)
+            .build();
+    when(harpConfig.getProgramName()).thenReturn("MADiE");
+    MadieUser user = userService.buildMadieUser("activeuser", detail, wrapper);
+    assertThat(user.getStatus(), is(UserStatus.ACTIVE));
+    assertThat(user.getRoles(), hasSize(1));
+    assertThat(user.getRoles().get(0).getRole(), is("MADiE-User"));
+  }
 
+  @Test
+  void buildMadieUserReturnsDeactivatedWithNoMatchingRoles() {
+    UserDetail detail = UserDetail.builder().username("inactive").build();
+    UserRole nonMatchingRole =
+        UserRole.builder()
+            .programName("OTHER")
+            .roleType("OTHER")
+            .displayName("Other-User")
+            .status("Active")
+            .build();
+    UserRolesResponse rolesResponse =
+        UserRolesResponse.builder().userRoles(List.of(nonMatchingRole)).build();
+    HarpResponseWrapper<UserRolesResponse> wrapper =
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .response(rolesResponse)
+            .statusCode(HttpStatus.OK)
+            .build();
+    when(harpConfig.getProgramName()).thenReturn("MADiE");
+    MadieUser user = userService.buildMadieUser("inactive", detail, wrapper);
+    assertThat(user.getStatus(), is(UserStatus.DEACTIVATED));
+    assertThat(user.getRoles(), empty());
+  }
+
+  @Test
+  void buildMadieUserReturnsDeactivatedForRoleCreation027Error() {
+    UserDetail detail = UserDetail.builder().username("deactivated").build();
+    HarpResponseWrapper<UserRolesResponse> wrapper =
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+            .error(
+                gov.cms.madie.user.dto.HarpErrorResponse.builder()
+                    .errorCode("ERR-ROLECREATION-027")
+                    .build())
+            .build();
+    MadieUser user = userService.buildMadieUser("deactivated", detail, wrapper);
+    assertThat(user.getStatus(), is(UserStatus.DEACTIVATED));
+    assertThat(user.getRoles(), empty());
+  }
+
+  @Test
+  void buildMadieUserReturnsErrorSuspendedForOtherErrorCodes() {
+    UserDetail detail = UserDetail.builder().username("suspended").build();
+    HarpResponseWrapper<UserRolesResponse> wrapper =
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .statusCode(HttpStatus.INTERNAL_SERVER_ERROR)
+            .error(
+                gov.cms.madie.user.dto.HarpErrorResponse.builder().errorCode("ERR-OTHER").build())
+            .build();
+    MadieUser user = userService.buildMadieUser("suspended", detail, wrapper);
+    assertThat(user.getStatus(), is(UserStatus.ERROR_SUSPENDED));
+    assertThat(user.getRoles(), empty());
+  }
+
+  @Test
+  void buildMadieUserReturnsErrorSuspendedForNullWrapper() {
+    UserDetail detail = UserDetail.builder().username("nullwrapper").build();
+    MadieUser user = userService.buildMadieUser("nullwrapper", detail, null);
+    assertThat(user.getStatus(), is(UserStatus.ERROR_SUSPENDED));
+    assertThat(user.getRoles(), empty());
+  }
+
+  @Test
+  void buildMadieUserHandlesNullDetail() {
+    UserRole validRole =
+        UserRole.builder()
+            .programName("MADiE")
+            .roleType("MADiE")
+            .displayName("MADiE-User")
+            .status("Active")
+            .build();
+    UserRolesResponse rolesResponse =
+        UserRolesResponse.builder().userRoles(List.of(validRole)).build();
+    HarpResponseWrapper<UserRolesResponse> wrapper =
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .response(rolesResponse)
+            .statusCode(HttpStatus.OK)
+            .build();
+    when(harpConfig.getProgramName()).thenReturn("MADiE");
+    MadieUser user = userService.buildMadieUser("", null, wrapper);
+    assertThat(user.getStatus(), is(UserStatus.ACTIVE));
+    assertThat(user.getRoles(), hasSize(1));
+  }
+
+  @Test
+  void updateUsersFromHarpDoesNotUpdateWhenUpdatedUserIsNull() {
+    List<String> harpIds = List.of("nulluser");
+    UserDetailsResponse detailsResponse =
+        createUserDetailsResponse("nulluser", "null@example.com", "Null", "User");
+    when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
+    when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
+    // Spy UserService to force buildMadieUser to return null
+    UserService spyService = spy(userService);
+    doReturn(null).when(spyService).buildMadieUser(eq("nulluser"), any(), any());
+    UserUpdatesJobResultDto result = spyService.updateUsersFromHarp(harpIds);
+    // Should not update user, should mark as failed
+    assertThat(result.getUpdatedHarpIds(), empty());
+    assertThat(result.getFailedHarpIds(), hasItem("nulluser"));
+    verify(userRepository, never()).updateMadieUser(anyMap(), eq("nulluser"));
+  }
+
+  @Test
+  void updateUsersFromHarpHandlesMixedCaseHarpId() {
+    List<String> harpIds = List.of("MiXeDcAsE");
+    UserDetailsResponse detailsResponse =
+        createUserDetailsResponse("mixedcase", "mixed@example.com", "Mixed", "Case");
+    UserRolesResponse rolesResponse = createUserRolesResponse("active", "Admin", "ADMIN");
+    MadieUser existingUser = createExistingUser();
+    setupMocksForSuccessfulUpdate(harpIds, detailsResponse, rolesResponse, existingUser);
+    UserUpdatesJobResultDto results = userService.updateUsersFromHarp(harpIds);
+    assertThat(results.getUpdatedHarpIds(), hasItem("MiXeDcAsE"));
+    verify(userRepository).updateMadieUser(anyMap(), eq("MiXeDcAsE"));
+  }
+
+  @Test
+  void getUserByHarpIdFindsUserRegardlessOfCase() {
+    MadieUser user = createExistingUser();
+    when(userRepository.findByHarpId("harper")).thenReturn(Optional.of(user));
+    MadieUser result = userService.getUserByHarpId("HARPER");
+    assertThat(result.getHarpId(), is("harper"));
+  }
+
+  @Test
+  void refreshUserRolesAndLoginHandlesMixedCaseHarpId() {
+    String harpId = "MiXeDcAsE";
+    when(tokenManager.getCurrentToken())
+        .thenReturn(TokenResponse.builder().accessToken("token").build());
+    UserRolesResponse rolesResponse = createUserRolesResponse("active", "Admin", "ADMIN");
+    HarpResponseWrapper<UserRolesResponse> wrapper =
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .response(rolesResponse)
+            .statusCode(HttpStatus.OK)
+            .build();
+    when(harpProxyService.fetchUserRoles(eq(harpId), anyString())).thenReturn(wrapper);
+    when(harpConfig.getProgramName()).thenReturn("MADiE");
+    MadieUser expected = MadieUser.builder().harpId(harpId).build();
+    when(userRepository.loginUser(any(MadieUser.class))).thenReturn(expected);
+    MadieUser result = userService.refreshUserRolesAndLogin(harpId);
+    assertThat(result.getHarpId(), is(harpId));
+  }
+
+  // Helper method for test setup
   private UserDetailsResponse createUserDetailsResponse(
       String username, String email, String firstName, String lastName) {
     UserDetail detail =
@@ -590,10 +705,15 @@ class UserServiceTest {
       UserDetailsResponse detailsResponse,
       UserRolesResponse rolesResponse,
       MadieUser existingUser) {
+    HarpResponseWrapper<UserRolesResponse> rolesWrapper =
+        HarpResponseWrapper.<UserRolesResponse>builder()
+            .response(rolesResponse)
+            .statusCode(HttpStatus.OK)
+            .build();
     when(tokenManager.getCurrentToken()).thenReturn(tokenResponse);
     when(harpConfig.getProgramName()).thenReturn("MADiE");
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
-    when(harpProxyService.fetchUserRoles(anyString(), anyString())).thenReturn(rolesResponse);
+    when(harpProxyService.fetchUserRoles(anyString(), anyString())).thenReturn(rolesWrapper);
     when(userRepository.findByHarpId(anyString())).thenReturn(Optional.of(existingUser));
   }
 }
