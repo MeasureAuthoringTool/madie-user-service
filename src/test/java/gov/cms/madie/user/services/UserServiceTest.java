@@ -9,8 +9,10 @@ import gov.cms.madie.user.dto.HarpResponseWrapper;
 import gov.cms.madie.user.dto.TokenResponse;
 import gov.cms.madie.user.dto.UserRole;
 import gov.cms.madie.user.dto.UserRolesResponse;
+import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.repositories.UserRepository;
 import gov.cms.madie.user.dto.*;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -152,17 +154,6 @@ class UserServiceTest {
     assertThat(details.getEmail(), is("user@example.com"));
     assertThat(details.getFirstName(), is("Jane"));
     assertThat(details.getLastName(), is("Smith"));
-  }
-
-  @Test
-  void getUserDetailsByHarpIdReturnsEmptyDetailsWhenNotFound() {
-    String harpId = "notfound";
-    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.empty());
-
-    UserDetailsDto details = userService.getUserDetailsByHarpId(harpId);
-
-    assertThat(details.getHarpId(), is(harpId));
-    assertNull(details.getEmail());
   }
 
   @Test
@@ -715,5 +706,34 @@ class UserServiceTest {
     when(harpProxyService.fetchUserDetails(eq(harpIds), anyString())).thenReturn(detailsResponse);
     when(harpProxyService.fetchUserRoles(anyString(), anyString())).thenReturn(rolesWrapper);
     when(userRepository.findByHarpId(anyString())).thenReturn(Optional.of(existingUser));
+  }
+
+  @Test
+  void getUserDetailsByHarpIdThrowsExceptionWhenHarpIdIsNull() {
+    InvalidHarpIdException exception =
+        assertThrows(InvalidHarpIdException.class, () -> userService.getUserDetailsByHarpId(null));
+
+    assertThat(exception.getMessage(), is("HARP ID cannot be  null or empty"));
+  }
+
+  @Test
+  void getUserDetailsByHarpIdThrowsExceptionWhenHarpIdIsEmpty() {
+    InvalidHarpIdException exception =
+        assertThrows(InvalidHarpIdException.class, () -> userService.getUserDetailsByHarpId(""));
+
+    assertThat(exception.getMessage(), is("HARP ID cannot be  null or empty"));
+  }
+
+  @Test
+  void getUserDetailsByHarpIdThrowsExceptionWhenUserNotFound() {
+    String harpId = "nonExistentUser";
+    when(userRepository.findByHarpId(StringUtils.toRootLowerCase(harpId)))
+        .thenReturn(Optional.empty());
+
+    InvalidHarpIdException exception =
+        assertThrows(
+            InvalidHarpIdException.class, () -> userService.getUserDetailsByHarpId(harpId));
+
+    assertThat(exception.getMessage(), is("User not found for HARP ID: [nonExistentUser]"));
   }
 }
