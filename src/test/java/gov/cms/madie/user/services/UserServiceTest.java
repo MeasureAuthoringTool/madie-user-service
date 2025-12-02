@@ -713,7 +713,7 @@ class UserServiceTest {
     InvalidHarpIdException exception =
         assertThrows(InvalidHarpIdException.class, () -> userService.getUserDetailsByHarpId(null));
 
-    assertThat(exception.getMessage(), is("HARP ID cannot be  null or empty"));
+    assertThat(exception.getMessage(), is("HARP ID cannot be null or empty"));
   }
 
   @Test
@@ -721,7 +721,7 @@ class UserServiceTest {
     InvalidHarpIdException exception =
         assertThrows(InvalidHarpIdException.class, () -> userService.getUserDetailsByHarpId(""));
 
-    assertThat(exception.getMessage(), is("HARP ID cannot be  null or empty"));
+    assertThat(exception.getMessage(), is("HARP ID cannot be null or empty"));
   }
 
   @Test

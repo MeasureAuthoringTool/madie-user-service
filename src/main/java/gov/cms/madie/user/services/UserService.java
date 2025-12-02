@@ -85,9 +85,9 @@ public class UserService {
 
   @Cacheable("users")
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
-    if (harpId == null || harpId.isBlank()) {
+    if (harpId == null || StringUtils.isBlank(harpId)) {
       log.warn("HARP ID cannot be  null or empty");
-      throw new InvalidHarpIdException(String.format("HARP ID cannot be  null or empty"));
+      throw new InvalidHarpIdException(String.format("HARP ID cannot be null or empty"));
     }
 
     return userRepository
