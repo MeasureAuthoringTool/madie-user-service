@@ -23,7 +23,7 @@ class MongoIndexConfigTest {
     MongoDatabase mongoDatabase = mock(MongoDatabase.class);
     MongoCollection<Document> mongoCollection = mock(MongoCollection.class);
     when(mongoTemplate.getDb()).thenReturn(mongoDatabase);
-    when(mongoDatabase.getCollection("user")).thenReturn(mongoCollection);
+    when(mongoDatabase.getCollection("madieUser")).thenReturn(mongoCollection);
     MongoIndexConfig config = new MongoIndexConfig();
 
     // when
