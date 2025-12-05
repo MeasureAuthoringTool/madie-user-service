@@ -20,7 +20,7 @@ public class MongoIndexConfig {
   public CommandLineRunner createIndexes(MongoTemplate mongoTemplate) {
     return args -> {
       MongoDatabase db = mongoTemplate.getDb();
-      MongoCollection<Document> collection = db.getCollection("user");
+      MongoCollection<Document> collection = db.getCollection("madieUser");
 
       Document indexKey = new Document("harpId", 1);
       IndexOptions options =

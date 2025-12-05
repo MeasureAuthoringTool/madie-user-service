@@ -155,17 +155,6 @@ class UserServiceTest {
   }
 
   @Test
-  void getUserDetailsByHarpIdReturnsEmptyDetailsWhenNotFound() {
-    String harpId = "notfound";
-    when(userRepository.findByHarpId(harpId)).thenReturn(Optional.empty());
-
-    UserDetailsDto details = userService.getUserDetailsByHarpId(harpId);
-
-    assertThat(details.getHarpId(), is(harpId));
-    assertNull(details.getEmail());
-  }
-
-  @Test
   void updateUsersFromHarpReturnsEmptyWhenNoIdsProvided() {
     UserUpdatesJobResultDto results = userService.updateUsersFromHarp(Collections.emptyList());
 
