@@ -217,4 +217,69 @@ class UserControllerTest {
 
     assertThat(exception.getMessage(), is("User not found for HARP ID: [nonExistentHarpId]"));
   }
+
+  @Test
+  void getBulkUserDetailsReturnsValidEntriesWhenAllHarpIdsAreValid() {
+    DetailsRequestDto request = new DetailsRequestDto();
+    request.setHarpIds(Arrays.asList("123", "456"));
+    UserDetailsDto details1 = UserDetailsDto.builder().harpId("123").build();
+    UserDetailsDto details2 = UserDetailsDto.builder().harpId("456").build();
+    when(userService.getUserDetailsByHarpId("123")).thenReturn(details1);
+    when(userService.getUserDetailsByHarpId("456")).thenReturn(details2);
+
+    ResponseEntity<Map<String, UserDetailsDto>> response =
+        userController.getBulkUserDetails(request, principal);
+
+    assertThat(response.getStatusCode(), is(HttpStatus.OK));
+    assertThat(response.getBody(), allOf(hasEntry("123", details1), hasEntry("456", details2)));
+  }
+
+  @Test
+  void getBulkUserDetailsReturnsEntriesWithDefaultUserDetailsForInvalidHarpIds() {
+    DetailsRequestDto request = new DetailsRequestDto();
+    request.setHarpIds(Arrays.asList("123", "invalid"));
+    UserDetailsDto details1 = UserDetailsDto.builder().harpId("123").build();
+    when(userService.getUserDetailsByHarpId("123")).thenReturn(details1);
+    when(userService.getUserDetailsByHarpId("invalid")).thenReturn(null);
+
+    ResponseEntity<Map<String, UserDetailsDto>> response =
+        userController.getBulkUserDetails(request, principal);
+
+    assertThat(response.getStatusCode(), is(HttpStatus.OK));
+    assertThat(
+        response.getBody(),
+        allOf(
+            hasEntry("123", details1),
+            hasEntry("invalid", UserDetailsDto.builder().harpId("invalid").build())));
+  }
+
+  @Test
+  void getBulkUserDetailsThrowsExceptionWhenHarpIdsAreEmpty() {
+    DetailsRequestDto request = new DetailsRequestDto();
+    request.setHarpIds(Arrays.asList());
+
+    InvalidHarpIdException exception =
+        assertThrows(
+            InvalidHarpIdException.class,
+            () -> userController.getBulkUserDetails(request, principal));
+
+    assertThat(exception.getMessage(), is("Harp Ids cannot be null or empty"));
+  }
+
+  @Test
+  void getBulkUserDetailsFiltersOutNullHarpIds() {
+    DetailsRequestDto request = new DetailsRequestDto();
+    request.setHarpIds(Arrays.asList("123", null, "456"));
+    UserDetailsDto details1 = UserDetailsDto.builder().harpId("123").build();
+    UserDetailsDto details2 = UserDetailsDto.builder().harpId("456").build();
+    when(userService.getUserDetailsByHarpId("123")).thenReturn(details1);
+    when(userService.getUserDetailsByHarpId("456")).thenReturn(details2);
+
+    ResponseEntity<Map<String, UserDetailsDto>> response =
+        userController.getBulkUserDetails(request, principal);
+
+    assertThat(response.getStatusCode(), is(HttpStatus.OK));
+    assertThat(response.getBody(), allOf(hasEntry("123", details1), hasEntry("456", details2)));
+    assertThat(response.getBody().containsKey(null), is(false));
+  }
 }

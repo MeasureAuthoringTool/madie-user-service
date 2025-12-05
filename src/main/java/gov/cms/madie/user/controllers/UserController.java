@@ -11,6 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -86,10 +87,23 @@ public class UserController {
         "User [{}] - Getting bulk user details for HARP IDs: {}",
         principal.getName(),
         detailsRequest.getHarpIds());
+
+    if (detailsRequest == null || CollectionUtils.isEmpty(detailsRequest.getHarpIds())) {
+      throw new InvalidHarpIdException("Harp Ids cannot be null or empty");
+    }
+
     Map<String, UserDetailsDto> userDetailsMap =
         detailsRequest.getHarpIds().stream()
-            .map(harpId -> Map.entry(harpId, userService.getUserDetailsByHarpId(harpId)))
-            .filter(entry -> entry.getValue() != null)
+            .filter(harpId -> harpId != null)
+            .map(
+                harpId -> {
+                  UserDetailsDto userDetails = userService.getUserDetailsByHarpId(harpId);
+                  return Map.entry(
+                      harpId,
+                      userDetails != null
+                          ? userDetails
+                          : UserDetailsDto.builder().harpId(harpId).build());
+                })
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return ResponseEntity.ok(userDetailsMap);
   }
