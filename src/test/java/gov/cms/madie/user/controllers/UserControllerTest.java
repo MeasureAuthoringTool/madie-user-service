@@ -3,6 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.services.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -173,5 +174,47 @@ class UserControllerTest {
     // then
     assertThat(response.getStatusCode().value(), is(200));
     assertThat(response.getBody(), allOf(hasEntry("123", details1), hasEntry("456", details2)));
+  }
+
+  @Test
+  void getUserDetailsReturnsUserDetailsWhenHarpIdIsValid() {
+    String harpId = "validHarpId";
+    UserDetailsDto userDetails = UserDetailsDto.builder().harpId(harpId).build();
+    when(userService.getUserDetailsByHarpId(harpId)).thenReturn(userDetails);
+
+    ResponseEntity<UserDetailsDto> response = userController.getUserDetails(harpId, principal);
+
+    assertThat(response.getStatusCode(), is(HttpStatus.OK));
+    assertThat(response.getBody(), is(userDetails));
+  }
+
+  @Test
+  void getUserDetailsThrowsExceptionWhenHarpIdIsNull() {
+    InvalidHarpIdException exception =
+        assertThrows(
+            InvalidHarpIdException.class, () -> userController.getUserDetails(null, principal));
+
+    assertThat(exception.getMessage(), is("HARP ID cannot be null or empty"));
+  }
+
+  @Test
+  void getUserDetailsThrowsExceptionWhenHarpIdIsBlank() {
+    InvalidHarpIdException exception =
+        assertThrows(
+            InvalidHarpIdException.class, () -> userController.getUserDetails("   ", principal));
+
+    assertThat(exception.getMessage(), is("HARP ID cannot be null or empty"));
+  }
+
+  @Test
+  void getUserDetailsThrowsExceptionWhenUserDetailsNotFound() {
+    String harpId = "nonExistentHarpId";
+    when(userService.getUserDetailsByHarpId(harpId)).thenReturn(null);
+
+    InvalidHarpIdException exception =
+        assertThrows(
+            InvalidHarpIdException.class, () -> userController.getUserDetails(harpId, principal));
+
+    assertThat(exception.getMessage(), is("User not found for HARP ID: [nonExistentHarpId]"));
   }
 }

@@ -7,7 +7,6 @@ import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.config.HarpConfig;
 import gov.cms.madie.user.dto.TokenResponse;
 import gov.cms.madie.user.dto.UserRolesResponse;
-import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.repositories.UserRepository;
 import gov.cms.madie.user.dto.*;
 import lombok.RequiredArgsConstructor;
@@ -85,10 +84,6 @@ public class UserService {
 
   @Cacheable("users")
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
-    if (harpId == null || StringUtils.isBlank(harpId)) {
-      log.warn("HARP ID cannot be  null or empty");
-      throw new InvalidHarpIdException(String.format("HARP ID cannot be null or empty"));
-    }
 
     return userRepository
         .findByHarpId(StringUtils.toRootLowerCase(harpId))
@@ -100,12 +95,7 @@ public class UserService {
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())
                     .build())
-        .orElseThrow(
-            () -> {
-              log.warn("User details not found for HARP ID: {}", harpId);
-              throw new InvalidHarpIdException(
-                  String.format("User not found for HARP ID: [%s]", harpId));
-            });
+        .orElse(null);
   }
 
   /**

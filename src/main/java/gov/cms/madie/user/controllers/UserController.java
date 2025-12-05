@@ -3,6 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.services.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -63,7 +65,17 @@ public class UserController {
   public ResponseEntity<UserDetailsDto> getUserDetails(
       @PathVariable String harpId, Principal principal) {
     log.info("User [{}] - Getting user details for HARP ID: {}", principal.getName(), harpId);
+
+    if (StringUtils.isBlank(harpId)) {
+      log.warn("HARP ID cannot be  null or empty");
+      throw new InvalidHarpIdException(String.format("HARP ID cannot be null or empty"));
+    }
+
     UserDetailsDto userDetails = userService.getUserDetailsByHarpId(harpId);
+    if (userDetails == null) {
+      log.warn("User details not found for HARP ID: {}", harpId);
+      throw new InvalidHarpIdException(String.format("User not found for HARP ID: [%s]", harpId));
+    }
     return ResponseEntity.ok(userDetails);
   }
 
@@ -76,9 +88,9 @@ public class UserController {
         detailsRequest.getHarpIds());
     Map<String, UserDetailsDto> userDetailsMap =
         detailsRequest.getHarpIds().stream()
-            .collect(
-                java.util.stream.Collectors.toMap(
-                    harpId -> harpId, userService::getUserDetailsByHarpId));
+            .map(harpId -> Map.entry(harpId, userService.getUserDetailsByHarpId(harpId)))
+            .filter(entry -> entry.getValue() != null)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return ResponseEntity.ok(userDetailsMap);
   }
 }
