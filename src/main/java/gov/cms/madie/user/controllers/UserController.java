@@ -3,6 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.services.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,11 +11,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -63,7 +66,17 @@ public class UserController {
   public ResponseEntity<UserDetailsDto> getUserDetails(
       @PathVariable String harpId, Principal principal) {
     log.info("User [{}] - Getting user details for HARP ID: {}", principal.getName(), harpId);
+
+    if (StringUtils.isBlank(harpId)) {
+      log.warn("HARP ID cannot be  null or empty");
+      throw new InvalidHarpIdException(String.format("HARP ID cannot be null or empty"));
+    }
+
     UserDetailsDto userDetails = userService.getUserDetailsByHarpId(harpId);
+    if (userDetails == null) {
+      log.warn("User details not found for HARP ID: {}", harpId);
+      throw new InvalidHarpIdException(String.format("User not found for HARP ID: [%s]", harpId));
+    }
     return ResponseEntity.ok(userDetails);
   }
 
@@ -74,11 +87,24 @@ public class UserController {
         "User [{}] - Getting bulk user details for HARP IDs: {}",
         principal.getName(),
         detailsRequest.getHarpIds());
+
+    if (detailsRequest == null || CollectionUtils.isEmpty(detailsRequest.getHarpIds())) {
+      throw new InvalidHarpIdException("Harp Ids cannot be null or empty");
+    }
+
     Map<String, UserDetailsDto> userDetailsMap =
         detailsRequest.getHarpIds().stream()
-            .collect(
-                java.util.stream.Collectors.toMap(
-                    harpId -> harpId, userService::getUserDetailsByHarpId));
+            .filter(harpId -> harpId != null)
+            .map(
+                harpId -> {
+                  UserDetailsDto userDetails = userService.getUserDetailsByHarpId(harpId);
+                  return Map.entry(
+                      harpId,
+                      userDetails != null
+                          ? userDetails
+                          : UserDetailsDto.builder().harpId(harpId).build());
+                })
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return ResponseEntity.ok(userDetailsMap);
   }
 }

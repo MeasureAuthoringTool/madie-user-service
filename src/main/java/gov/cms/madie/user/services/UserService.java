@@ -84,6 +84,7 @@ public class UserService {
 
   @Cacheable("users")
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
+
     return userRepository
         .findByHarpId(StringUtils.toRootLowerCase(harpId))
         .map(
@@ -94,11 +95,7 @@ public class UserService {
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())
                     .build())
-        .orElseGet(
-            () -> {
-              log.warn("User details not found for HARP ID: {}", harpId);
-              return UserDetailsDto.builder().harpId(harpId).build();
-            });
+        .orElse(null);
   }
 
   /**
