@@ -79,7 +79,7 @@ public class UserService {
         .toList();
   }
 
-  // @Cacheable(value = "users", key = "#harpId")
+  @Cacheable(value = "users", key = "#harpId")
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
 
     return userRepository
