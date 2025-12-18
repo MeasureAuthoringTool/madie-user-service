@@ -1,0 +1,17 @@
+spring:
+   data:
+      mongodb:
+         uri: mongodb://gakins:E5press0@localhost:27017/madie?authSource=admin&maxPoolSize=50&connectTimeoutMS=2000&serverSelectionTimeoutMS=2000
+logging:
+  level:
+    root: ${DEBUG}
+  pattern:
+    console: "%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] %mdc %-5level %logger{36}.%M - %msg%n"
+    
+
+
+madie:
+  service-config:
+    cql-template-qicore411-url: ${CQL_TEMPLATE_QICORE411_URL:http://localhost:8089/QICore411_CQLTemplate.txt}
+    cql-template-qdm56-url: ${CQL_TEMPLATE_QDM56_URL:http://localhost:8089/QDM56_CQLTemplate.txt}
+    cql-template-qicore600-url: ${CQL_TEMPLATE_QICORE600_URL:http://localhost:8089/QICore600_CQLTemplate.txt}
