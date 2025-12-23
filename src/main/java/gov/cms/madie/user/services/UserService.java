@@ -5,8 +5,6 @@ import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.models.dto.UserDetailsDto;
 import gov.cms.madie.user.config.HarpConfig;
-import gov.cms.madie.user.dto.TokenResponse;
-import gov.cms.madie.user.dto.UserRolesResponse;
 import gov.cms.madie.user.repositories.UserRepository;
 import gov.cms.madie.user.dto.*;
 import lombok.RequiredArgsConstructor;
@@ -82,7 +80,7 @@ public class UserService {
         .toList();
   }
 
-  @Cacheable("users")
+  @Cacheable(value = "users", key = "#harpId")
   public UserDetailsDto getUserDetailsByHarpId(String harpId) {
 
     return userRepository
