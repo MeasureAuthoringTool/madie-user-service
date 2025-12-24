@@ -6,6 +6,8 @@ import gov.cms.madie.user.repositories.UserRepository;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +27,7 @@ public class UpdateUserJobScheduler {
 
   private final UserRepository userRepository;
   private final UserService userService;
+  private final CacheManager cacheManager;
 
   /** Scheduled job that updates all user data from HARP. */
   @Scheduled(cron = "${user.update.cron-expression}")
@@ -71,6 +74,7 @@ public class UpdateUserJobScheduler {
     } while (userPage.hasNext());
 
     logJobResults(updateJobResultsDto);
+    clearUsersCache();
     return updateJobResultsDto;
   }
 
@@ -85,6 +89,7 @@ public class UpdateUserJobScheduler {
       UserUpdatesJobResultDto resultsDto;
       if (userService.areHarpIdsValid(harpIds)) {
         resultsDto = userService.updateUsersFromHarp(harpIds);
+        clearUsersCache();
       } else {
         log.warn("Invalid HARP IDs provided for manual user update: {}", harpIds);
         resultsDto =
@@ -108,5 +113,12 @@ public class UpdateUserJobScheduler {
         resultsDto.getUpdatedHarpIds().size(),
         resultsDto.getFailedHarpIds().size(),
         resultsDto.getFailedHarpIds());
+  }
+
+  private void clearUsersCache() {
+    Cache cache = cacheManager.getCache("users");
+    if (cache != null) {
+      cache.clear();
+    }
   }
 }
