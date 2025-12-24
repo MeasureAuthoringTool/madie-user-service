@@ -116,7 +116,6 @@ public class UpdateUserJobScheduler {
   }
 
   private void clearUsersCache() {
-    // Method to clear any relevant caches after user updates
     Cache cache = cacheManager.getCache("users");
     if (cache != null) {
       cache.clear();
