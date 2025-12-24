@@ -9,6 +9,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -35,13 +36,14 @@ class UpdateUserJobSchedulerTest {
 
   @Mock private UserRepository userRepository;
   @Mock private UserService userService;
+  @Mock private CacheManager cacheManager;
 
   @InjectMocks private UpdateUserJobScheduler updateUserJobScheduler;
 
   @Test
   void triggerUpdateUsersJobManuallyWithNullHarpIdsDelegatesToScheduledJob() {
     UpdateUserJobScheduler schedulerSpy =
-        spy(new UpdateUserJobScheduler(userRepository, userService));
+        spy(new UpdateUserJobScheduler(userRepository, userService, cacheManager));
     UserUpdatesJobResultDto expectedResult =
         UserUpdatesJobResultDto.builder()
             .updatedHarpIds(new ArrayList<>(List.of("H1", "H2")))
@@ -59,7 +61,7 @@ class UpdateUserJobSchedulerTest {
   @Test
   void triggerUpdateUsersJobManuallyWithEmptyHarpIdsDelegatesToScheduledJob() {
     UpdateUserJobScheduler schedulerSpy =
-        spy(new UpdateUserJobScheduler(userRepository, userService));
+        spy(new UpdateUserJobScheduler(userRepository, userService, cacheManager));
     UserUpdatesJobResultDto expectedResult = UserUpdatesJobResultDto.builder().build();
     doReturn(expectedResult).when(schedulerSpy).triggerUpdateUsersJob();
 
