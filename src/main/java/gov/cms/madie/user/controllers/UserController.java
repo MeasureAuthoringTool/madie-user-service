@@ -3,6 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.services.UserService;
 import lombok.RequiredArgsConstructor;
@@ -38,8 +39,8 @@ public class UserController {
   }
 
   @PutMapping("/{harpId}")
-  public ResponseEntity<MadieUser> updateUser(@PathVariable String harpId, Principal principal) {
-    log.info("User [{}] - Updating user with HARP ID: {}", principal.getName(), harpId);
+  public ResponseEntity<UserLoginDto> loginUser(@PathVariable String harpId, Principal principal) {
+    log.info("User [{}] - Logging in user with HARP ID: {}", principal.getName(), harpId);
     if (!principal.getName().equals(harpId) && StringUtils.isBlank(harpOverrideTestId)) {
       throw new ResponseStatusException(
           HttpStatus.FORBIDDEN,
@@ -50,7 +51,12 @@ public class UserController {
     MadieUser user =
         userService.refreshUserRolesAndLogin(
             StringUtils.isBlank(harpOverrideTestId) ? harpId : harpOverrideTestId);
-    return ResponseEntity.ok(user);
+    return ResponseEntity.ok(
+        UserLoginDto.builder()
+            .status(user.getStatus())
+            .harpId(user.getHarpId())
+            .roles(user.getRoles())
+            .build());
   }
 
   @GetMapping("/activity")
