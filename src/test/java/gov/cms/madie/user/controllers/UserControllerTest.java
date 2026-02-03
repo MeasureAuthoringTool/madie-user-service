@@ -3,6 +3,7 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.services.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,49 +51,84 @@ class UserControllerTest {
   }
 
   @Test
-  void updateUserReturnsUpdatedMadieUser() {
+  void loginUserReturnsUserLoginDto() {
     // given
-    MadieUser user = MadieUser.builder().harpId("123").build();
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("123")
+            .status(gov.cms.madie.models.access.UserStatus.ACTIVE)
+            .roles(
+                Arrays.asList(
+                    gov.cms.madie.models.access.HarpRole.builder()
+                        .role("MADiE-Admin")
+                        .roleType("Group")
+                        .build()))
+            .build();
     when(principal.getName()).thenReturn("123"); // principal matches harpId
     when(userService.refreshUserRolesAndLogin("123")).thenReturn(user);
     // when
-    ResponseEntity<MadieUser> response = userController.updateUser("123", principal);
+    ResponseEntity<UserLoginDto> response = userController.loginUser("123", principal);
     // then
     assertThat(response.getStatusCode().value(), is(200));
-    assertThat(response.getBody(), is(user));
+    assertThat(response.getBody().getHarpId(), is("123"));
+    assertThat(response.getBody().getStatus(), is(gov.cms.madie.models.access.UserStatus.ACTIVE));
+    assertThat(response.getBody().getRoles().size(), is(1));
+    assertThat(response.getBody().getRoles().get(0).getRole(), is("MADiE-Admin"));
+    assertThat(response.getBody().getRoles().get(0).getRoleType(), is("Group"));
   }
 
   @Test
-  void updateUserUsesOverrideTestIdWhenSet() {
+  void loginUserUsesOverrideTestIdWhenSet() {
     // given
-    MadieUser user = MadieUser.builder().harpId("overrideId").build();
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("overrideId")
+            .status(gov.cms.madie.models.access.UserStatus.DEACTIVATED)
+            .roles(
+                Arrays.asList(
+                    gov.cms.madie.models.access.HarpRole.builder()
+                        .role("MADiE-User")
+                        .roleType("Group")
+                        .build(),
+                    gov.cms.madie.models.access.HarpRole.builder()
+                        .role("MADiE-Admin")
+                        .roleType("Group")
+                        .build()))
+            .build();
     // Simulate the test override ID being set
     ReflectionTestUtils.setField(userController, "harpOverrideTestId", "overrideId");
     when(userService.refreshUserRolesAndLogin("overrideId")).thenReturn(user);
     // when
-    ResponseEntity<MadieUser> response = userController.updateUser("anyId", principal);
+    ResponseEntity<UserLoginDto> response = userController.loginUser("anyId", principal);
     // then
     assertThat(response.getStatusCode().value(), is(200));
-    assertThat(response.getBody(), is(user));
+    assertThat(response.getBody().getHarpId(), is("overrideId"));
+    assertThat(
+        response.getBody().getStatus(), is(gov.cms.madie.models.access.UserStatus.DEACTIVATED));
+    assertThat(response.getBody().getRoles().size(), is(2));
+    assertThat(response.getBody().getRoles().get(0).getRole(), is("MADiE-User"));
+    assertThat(response.getBody().getRoles().get(0).getRoleType(), is("Group"));
+    assertThat(response.getBody().getRoles().get(1).getRole(), is("MADiE-Admin"));
+    assertThat(response.getBody().getRoles().get(1).getRoleType(), is("Group"));
   }
 
   @Test
-  void updateUserUsesPathVariableWhenOverrideTestIdIsEmptyString() {
+  void loginUserUsesPathVariableWhenOverrideTestIdIsEmptyString() {
     // given
     MadieUser user = MadieUser.builder().harpId("123").build();
     ReflectionTestUtils.setField(userController, "harpOverrideTestId", "");
     when(principal.getName()).thenReturn("123");
     when(userService.refreshUserRolesAndLogin("123")).thenReturn(user);
     // when
-    ResponseEntity<MadieUser> response = userController.updateUser("123", principal);
+    ResponseEntity<UserLoginDto> response = userController.loginUser("123", principal);
     // then
     assertThat(response.getStatusCode().value(), is(200));
-    assertThat(response.getBody(), is(user));
+    assertThat(response.getBody().getHarpId(), is("123"));
     verify(userService, times(1)).refreshUserRolesAndLogin("123");
   }
 
   @Test
-  void updateUserThrowsForbiddenWhenPrincipalDoesNotMatchAndOverrideTestIdIsBlank() {
+  void loginUserThrowsForbiddenWhenPrincipalDoesNotMatchAndOverrideTestIdIsBlank() {
     // given
     ReflectionTestUtils.setField(userController, "harpOverrideTestId", null);
     when(principal.getName()).thenReturn("principalId");
@@ -100,7 +136,7 @@ class UserControllerTest {
     ResponseStatusException exception =
         assertThrows(
             ResponseStatusException.class,
-            () -> userController.updateUser("differentId", principal));
+            () -> userController.loginUser("differentId", principal));
     assertThat(exception.getStatusCode(), is(HttpStatus.FORBIDDEN));
     assertThat(
         exception.getReason(),
@@ -108,22 +144,22 @@ class UserControllerTest {
   }
 
   @Test
-  void updateUserUsesOverrideTestIdWhenPrincipalMatchesAndOverrideTestIdIsSet() {
+  void loginUserUsesOverrideTestIdWhenPrincipalMatchesAndOverrideTestIdIsSet() {
     // given
     MadieUser user = MadieUser.builder().harpId("overrideId").build();
     ReflectionTestUtils.setField(userController, "harpOverrideTestId", "overrideId");
     when(principal.getName()).thenReturn("overrideId");
     when(userService.refreshUserRolesAndLogin("overrideId")).thenReturn(user);
     // when
-    ResponseEntity<MadieUser> response = userController.updateUser("overrideId", principal);
+    ResponseEntity<UserLoginDto> response = userController.loginUser("overrideId", principal);
     // then
     assertThat(response.getStatusCode().value(), is(200));
-    assertThat(response.getBody(), is(user));
+    assertThat(response.getBody().getHarpId(), is("overrideId"));
     verify(userService, times(1)).refreshUserRolesAndLogin("overrideId");
   }
 
   @Test
-  void updateUserThrowsForbiddenWhenPrincipalDoesNotMatchAndOverrideTestIdIsEmptyString() {
+  void loginUserThrowsForbiddenWhenPrincipalDoesNotMatchAndOverrideTestIdIsEmptyString() {
     // given
     ReflectionTestUtils.setField(userController, "harpOverrideTestId", "");
     when(principal.getName()).thenReturn("principalId");
@@ -131,7 +167,7 @@ class UserControllerTest {
     ResponseStatusException exception =
         assertThrows(
             ResponseStatusException.class,
-            () -> userController.updateUser("differentId", principal));
+            () -> userController.loginUser("differentId", principal));
     assertThat(exception.getStatusCode(), is(HttpStatus.FORBIDDEN));
     assertThat(
         exception.getReason(),
