@@ -162,16 +162,6 @@ public class UserControllerMvcTest {
 
   @Test
   @WithMockUser(username = "testuser")
-  void getUserActivityReportSuccessfully() throws Exception {
-    // When & Then
-    mockMvc
-        .perform(get("/users/activity").with(csrf()).contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(content().string("User report coming soon"));
-  }
-
-  @Test
-  @WithMockUser(username = "testuser")
   void loginUserWithDeactivatedStatusSuccessfully() throws Exception {
     // Given
     String harpId = "testuser";
