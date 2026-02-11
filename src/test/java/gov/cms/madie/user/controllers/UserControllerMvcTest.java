@@ -234,4 +234,79 @@ public class UserControllerMvcTest {
     verify(userService, times(1)).getUserDetailsByHarpId("user1");
     verify(userService, never()).getUserDetailsByHarpId(isNull());
   }
+
+  @Test
+  @WithMockUser(username = "testuser")
+  void getUserRolesByHarpIdSuccessfully() throws Exception {
+    // Given
+    String harpId = "harper";
+    MadieUser user =
+        MadieUser.builder()
+            .harpId(harpId)
+            .firstName("John")
+            .lastName("Doe")
+            .roles(List.of(HarpRole.builder().role("MADiE-Admin").roleType("Group").build()))
+            .build();
+    when(userService.getUserByHarpId(harpId)).thenReturn(user);
+
+    // When & Then
+    mockMvc
+        .perform(
+            get("/users/" + harpId + "/roles").with(csrf()).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.harpId", is(harpId)))
+        .andExpect(jsonPath("$.roles[0]", is("MADiE-Admin")));
+
+    verify(userService, times(1)).getUserByHarpId(harpId);
+  }
+
+  @Test
+  @WithMockUser(username = "testuser")
+  void getUserRolesMadieUserNotFound() throws Exception {
+    String harpId = "nonexistent";
+    when(userService.getUserByHarpId(harpId)).thenReturn(null);
+
+    mockMvc
+        .perform(
+            get("/users/" + harpId + "/roles").with(csrf()).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error", is("Bad Request")))
+        .andExpect(jsonPath("$.message", containsString("Harp Id: " + harpId + " is not found")));
+
+    verify(userService, times(1)).getUserByHarpId(harpId);
+  }
+
+  @Test
+  @WithMockUser(username = "testuser")
+  void getUserRolesMadieUserDoesNotHaveRoles() throws Exception {
+
+    String harpId = "userWithoutRoles";
+    MadieUser user =
+        MadieUser.builder()
+            .harpId(harpId)
+            .firstName("John")
+            .lastName("Doe")
+            .roles(List.of())
+            .build();
+    when(userService.getUserByHarpId(harpId)).thenReturn(user);
+
+    try {
+      mockMvc
+          .perform(
+              get("/users/" + harpId + "/roles")
+                  .with(csrf())
+                  .contentType(MediaType.APPLICATION_JSON))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.error", is("Bad Request")))
+          .andExpect(
+              jsonPath(
+                  "$.message",
+                  containsString("Harp Id: " + harpId + " is not found or does not have roles")));
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    verify(userService, times(1)).getUserByHarpId(harpId);
+  }
 }

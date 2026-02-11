@@ -1,8 +1,10 @@
 package gov.cms.madie.user.controllers;
 
+import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.models.dto.UserRolesDto;
 import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.services.UserService;
@@ -19,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -317,5 +320,50 @@ class UserControllerTest {
     assertThat(response.getStatusCode(), is(HttpStatus.OK));
     assertThat(response.getBody(), allOf(hasEntry("123", details1), hasEntry("456", details2)));
     assertThat(response.getBody().containsKey(null), is(false));
+  }
+
+  @Test
+  void getUserRolesReturnsMadieUserRole() {
+    // given
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("123")
+            .roles(List.of(HarpRole.builder().roleType("Group").role("MADiE-User").build()))
+            .build();
+    UserRolesDto reponseDto =
+        UserRolesDto.builder().harpId("123").roles(List.of("MADiE-User")).build();
+    when(userService.getUserByHarpId("123")).thenReturn(user);
+    // when
+    ResponseEntity<UserRolesDto> response = userController.getUserRoles("123", principal);
+    // then
+    assertThat(response.getStatusCode().value(), is(200));
+    assertThat(response.getBody(), is(reponseDto));
+  }
+
+  @Test
+  void getUserRolesNoHarpId() {
+    InvalidHarpIdException exception =
+        assertThrows(
+            InvalidHarpIdException.class, () -> userController.getUserRoles("   ", principal));
+    assertThat(exception.getMessage(), is("Harp Ids cannot be null or empty"));
+  }
+
+  @Test
+  void getUserRolesMadieUserNotFound() {
+    when(userService.getUserByHarpId("123")).thenReturn(null);
+    InvalidHarpIdException exception =
+        assertThrows(
+            InvalidHarpIdException.class, () -> userController.getUserRoles("123", principal));
+    assertThat(exception.getMessage(), is("Harp Id: 123 is not found or does not have roles"));
+  }
+
+  @Test
+  void getUserRolesMadieUserDoesNotHaveRoles() {
+    MadieUser user = MadieUser.builder().harpId("123").roles(List.of()).build();
+    when(userService.getUserByHarpId("123")).thenReturn(user);
+    InvalidHarpIdException exception =
+        assertThrows(
+            InvalidHarpIdException.class, () -> userController.getUserRoles("123", principal));
+    assertThat(exception.getMessage(), is("Harp Id: 123 is not found or does not have roles"));
   }
 }
