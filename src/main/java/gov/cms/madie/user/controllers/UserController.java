@@ -1,8 +1,10 @@
 package gov.cms.madie.user.controllers;
 
+import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.models.dto.UserRolesDto;
 import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.exceptions.InvalidHarpIdException;
 import gov.cms.madie.user.services.UserService;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -112,5 +115,24 @@ public class UserController {
                 })
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return ResponseEntity.ok(userDetailsMap);
+  }
+
+  @GetMapping("/{harpId}/roles")
+  public ResponseEntity<UserRolesDto> getUserRoles(
+      @PathVariable String harpId, Principal principal) {
+    log.info("User [{}] - Getting user roles with HARP ID: {}", principal.getName(), harpId);
+    if (StringUtils.isBlank(harpId)) {
+      throw new InvalidHarpIdException("Harp Ids cannot be null or empty");
+    }
+    MadieUser user = userService.getUserByHarpId(harpId);
+    if (user == null || CollectionUtils.isEmpty(user.getRoles())) {
+      throw new InvalidHarpIdException(
+          "Harp Id: " + harpId + " is not found or does not have roles");
+    }
+
+    List<String> roleNames =
+        user.getRoles().stream().map(HarpRole::getRole).collect(Collectors.toList());
+    UserRolesDto response = new UserRolesDto(user.getHarpId(), roleNames);
+    return ResponseEntity.ok(response);
   }
 }
