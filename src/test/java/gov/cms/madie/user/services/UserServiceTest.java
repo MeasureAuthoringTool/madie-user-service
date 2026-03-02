@@ -616,6 +616,85 @@ class UserServiceTest {
     assertThat(result.getHarpId(), is(harpId));
   }
 
+  @Test
+  void getAllMadieUsersReturnsAllUsers() {
+    List<UserLoginDto> expectedUsers =
+            List.of(
+                    UserLoginDto.builder()
+                            .harpId("user1")
+                            .status(UserStatus.ACTIVE)
+                            .lastLoginAt(Instant.parse("2026-01-15T10:00:00Z"))
+                            .build(),
+                    UserLoginDto.builder()
+                            .harpId("user2")
+                            .status(UserStatus.DEACTIVATED)
+                            .lastLoginAt(Instant.parse("2026-02-20T14:30:00Z"))
+                            .build());
+    when(userRepository.findAllProjectedBy()).thenReturn(expectedUsers);
+
+    List<UserLoginDto> result = userService.getAllMadieUsers();
+
+    assertThat(result, hasSize(2));
+    assertThat(result.get(0).getHarpId(), is("user1"));
+    assertThat(result.get(0).getStatus(), is(UserStatus.ACTIVE));
+    assertThat(result.get(1).getHarpId(), is("user2"));
+    assertThat(result.get(1).getStatus(), is(UserStatus.DEACTIVATED));
+    verify(userRepository).findAllProjectedBy();
+  }
+
+  @Test
+  void getAllMadieUsersReturnsEmptyListWhenNoUsers() {
+    when(userRepository.findAllProjectedBy()).thenReturn(Collections.emptyList());
+
+    List<UserLoginDto> result = userService.getAllMadieUsers();
+
+    assertThat(result, empty());
+    verify(userRepository).findAllProjectedBy();
+  }
+
+  @Test
+  void getAllMadieUsersReturnsUsersWithNullLastLoginAt() {
+    List<UserLoginDto> expectedUsers =
+            List.of(
+                    UserLoginDto.builder()
+                            .harpId("user1")
+                            .status(UserStatus.ACTIVE)
+                            .lastLoginAt(null)
+                            .build());
+    when(userRepository.findAllProjectedBy()).thenReturn(expectedUsers);
+
+    List<UserLoginDto> result = userService.getAllMadieUsers();
+
+    assertThat(result, hasSize(1));
+    assertThat(result.get(0).getHarpId(), is("user1"));
+    assertNull(result.get(0).getLastLoginAt());
+    verify(userRepository).findAllProjectedBy();
+  }
+
+  @Test
+  void getAllMadieUsersReturnsUsersWithRoles() {
+    List<HarpRole> roles =
+            List.of(
+                    HarpRole.builder().role("Admin").roleType("ADMIN").build(),
+                    HarpRole.builder().role("User").roleType("USER").build());
+    List<UserLoginDto> expectedUsers =
+            List.of(
+                    UserLoginDto.builder()
+                            .harpId("user1")
+                            .status(UserStatus.ACTIVE)
+                            .roles(roles)
+                            .lastLoginAt(Instant.now())
+                            .build());
+    when(userRepository.findAllProjectedBy()).thenReturn(expectedUsers);
+
+    List<UserLoginDto> result = userService.getAllMadieUsers();
+
+    assertThat(result, hasSize(1));
+    assertThat(result.get(0).getRoles(), hasSize(2));
+    assertThat(result.get(0).getRoles().get(0).getRole(), is("Admin"));
+    verify(userRepository).findAllProjectedBy();
+  }
+
   // Helper method for test setup
   private UserDetailsResponse createUserDetailsResponse(
       String username, String email, String firstName, String lastName) {

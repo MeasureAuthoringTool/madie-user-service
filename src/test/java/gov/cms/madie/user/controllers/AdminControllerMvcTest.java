@@ -1,6 +1,7 @@
 package gov.cms.madie.user.controllers;
 
 import gov.cms.madie.user.config.SecurityConfig;
+import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
@@ -14,11 +15,14 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -79,5 +83,55 @@ public class AdminControllerMvcTest {
         .andExpect(status().isForbidden());
 
     verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually(null);
+  }
+
+  @Test
+  @WithMockUser(username = "admin")
+  void getLastLoginReturnsUserList() throws Exception {
+    List<UserLoginDto> users =
+        List.of(
+            UserLoginDto.builder().harpId("user1").lastLoginAt(Instant.parse("2026-01-15T10:00:00Z")).build(),
+            UserLoginDto.builder().harpId("user2").lastLoginAt(Instant.parse("2026-02-20T14:30:00Z")).build());
+    when(userService.getAllMadieUsers()).thenReturn(users);
+
+    mockMvc
+        .perform(
+            get("/admin/users/last-login")
+                .header("api-key", ADMIN_TEST_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].harpId").value("user1"))
+        .andExpect(jsonPath("$[1].harpId").value("user2"));
+
+    verify(userService, times(1)).getAllMadieUsers();
+  }
+
+  @Test
+  @WithMockUser(username = "admin")
+  void getLastLoginReturnsEmptyListWhenNoUsers() throws Exception {
+    when(userService.getAllMadieUsers()).thenReturn(Collections.emptyList());
+
+    mockMvc
+        .perform(
+            get("/admin/users/last-login")
+                .header("api-key", ADMIN_TEST_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$").isArray())
+        .andExpect(jsonPath("$").isEmpty());
+
+    verify(userService, times(1)).getAllMadieUsers();
+  }
+
+  @Test
+  void getLastLoginRequiresAuthentication() throws Exception {
+    mockMvc
+        .perform(
+            get("/admin/users/last-login")
+                .header("api-key", ADMIN_TEST_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isUnauthorized());
+
+    verify(userService, never()).getAllMadieUsers();
   }
 }
