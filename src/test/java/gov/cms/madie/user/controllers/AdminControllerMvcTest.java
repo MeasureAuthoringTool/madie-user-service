@@ -90,8 +90,14 @@ public class AdminControllerMvcTest {
   void getLastLoginReturnsUserList() throws Exception {
     List<UserLoginDto> users =
         List.of(
-            UserLoginDto.builder().harpId("user1").lastLoginAt(Instant.parse("2026-01-15T10:00:00Z")).build(),
-            UserLoginDto.builder().harpId("user2").lastLoginAt(Instant.parse("2026-02-20T14:30:00Z")).build());
+            UserLoginDto.builder()
+                .harpId("user1")
+                .lastLoginAt(Instant.parse("2026-01-15T10:00:00Z"))
+                .build(),
+            UserLoginDto.builder()
+                .harpId("user2")
+                .lastLoginAt(Instant.parse("2026-02-20T14:30:00Z"))
+                .build());
     when(userService.getAllMadieUsers()).thenReturn(users);
 
     mockMvc

@@ -619,17 +619,17 @@ class UserServiceTest {
   @Test
   void getAllMadieUsersReturnsAllUsers() {
     List<UserLoginDto> expectedUsers =
-            List.of(
-                    UserLoginDto.builder()
-                            .harpId("user1")
-                            .status(UserStatus.ACTIVE)
-                            .lastLoginAt(Instant.parse("2026-01-15T10:00:00Z"))
-                            .build(),
-                    UserLoginDto.builder()
-                            .harpId("user2")
-                            .status(UserStatus.DEACTIVATED)
-                            .lastLoginAt(Instant.parse("2026-02-20T14:30:00Z"))
-                            .build());
+        List.of(
+            UserLoginDto.builder()
+                .harpId("user1")
+                .status(UserStatus.ACTIVE)
+                .lastLoginAt(Instant.parse("2026-01-15T10:00:00Z"))
+                .build(),
+            UserLoginDto.builder()
+                .harpId("user2")
+                .status(UserStatus.DEACTIVATED)
+                .lastLoginAt(Instant.parse("2026-02-20T14:30:00Z"))
+                .build());
     when(userRepository.findAllProjectedBy()).thenReturn(expectedUsers);
 
     List<UserLoginDto> result = userService.getAllMadieUsers();
@@ -655,12 +655,12 @@ class UserServiceTest {
   @Test
   void getAllMadieUsersReturnsUsersWithNullLastLoginAt() {
     List<UserLoginDto> expectedUsers =
-            List.of(
-                    UserLoginDto.builder()
-                            .harpId("user1")
-                            .status(UserStatus.ACTIVE)
-                            .lastLoginAt(null)
-                            .build());
+        List.of(
+            UserLoginDto.builder()
+                .harpId("user1")
+                .status(UserStatus.ACTIVE)
+                .lastLoginAt(null)
+                .build());
     when(userRepository.findAllProjectedBy()).thenReturn(expectedUsers);
 
     List<UserLoginDto> result = userService.getAllMadieUsers();
@@ -674,17 +674,17 @@ class UserServiceTest {
   @Test
   void getAllMadieUsersReturnsUsersWithRoles() {
     List<HarpRole> roles =
-            List.of(
-                    HarpRole.builder().role("Admin").roleType("ADMIN").build(),
-                    HarpRole.builder().role("User").roleType("USER").build());
+        List.of(
+            HarpRole.builder().role("Admin").roleType("ADMIN").build(),
+            HarpRole.builder().role("User").roleType("USER").build());
     List<UserLoginDto> expectedUsers =
-            List.of(
-                    UserLoginDto.builder()
-                            .harpId("user1")
-                            .status(UserStatus.ACTIVE)
-                            .roles(roles)
-                            .lastLoginAt(Instant.now())
-                            .build());
+        List.of(
+            UserLoginDto.builder()
+                .harpId("user1")
+                .status(UserStatus.ACTIVE)
+                .roles(roles)
+                .lastLoginAt(Instant.now())
+                .build());
     when(userRepository.findAllProjectedBy()).thenReturn(expectedUsers);
 
     List<UserLoginDto> result = userService.getAllMadieUsers();
