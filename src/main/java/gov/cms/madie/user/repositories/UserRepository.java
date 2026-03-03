@@ -1,11 +1,13 @@
 package gov.cms.madie.user.repositories;
 
 import gov.cms.madie.models.access.MadieUser;
+import gov.cms.madie.user.dto.UserLoginDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends MongoRepository<MadieUser, String>, UserPatchRepository {
@@ -29,4 +31,7 @@ public interface UserRepository extends MongoRepository<MadieUser, String>, User
    */
   @Query(value = "{}", fields = "{ 'harpId' : 1 }")
   Page<MadieUser> findAllHarpIds(Pageable pageable);
+
+  @Query(value = "{}")
+  List<UserLoginDto> findAllProjectedBy();
 }

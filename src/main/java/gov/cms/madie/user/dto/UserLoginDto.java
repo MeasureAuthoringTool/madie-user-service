@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -17,4 +18,5 @@ public class UserLoginDto {
   private String harpId;
   private UserStatus status;
   private List<HarpRole> roles;
+  private Instant lastLoginAt;
 }

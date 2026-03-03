@@ -311,4 +311,8 @@ public class UserService {
         .max(Comparator.naturalOrder())
         .orElse(null);
   }
+
+  public List<UserLoginDto> getAllMadieUsers() {
+    return userRepository.findAllProjectedBy();
+  }
 }
