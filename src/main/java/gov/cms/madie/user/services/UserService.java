@@ -92,7 +92,7 @@ public class UserService {
                     .email(user.getEmail())
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())
-                    .active(UserStatus.ACTIVE.equals(user.getStatus()))
+                    .userStatus(user.getStatus())
                     .build())
         .orElse(null);
   }
