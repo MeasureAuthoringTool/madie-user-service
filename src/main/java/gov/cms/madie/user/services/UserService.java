@@ -92,6 +92,7 @@ public class UserService {
                     .email(user.getEmail())
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())
+                    .userStatus(user.getStatus())
                     .build())
         .orElse(null);
   }
