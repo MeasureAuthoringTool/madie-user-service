@@ -1,5 +1,8 @@
 package gov.cms.madie.user.config;
 
+import gov.cms.madie.user.config.security.RoleConstants;
+import gov.cms.madie.user.config.security.SecurityExceptionHandlers;
+import gov.cms.madie.user.config.security.UserRoleConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -21,17 +24,34 @@ public class SecurityConfig {
   };
 
   @Bean
-  protected SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+  protected SecurityFilterChain filterChain(
+      HttpSecurity http,
+      UserRoleConverter userRoleConverter,
+      SecurityExceptionHandlers securityExceptionHandlers)
+      throws Exception {
     http.cors(withDefaults())
         .csrf(csrfConfigure -> csrfConfigure.ignoringRequestMatchers(CSRF_WHITELIST))
         .authorizeHttpRequests(
-            authorizeRequests -> authorizeRequests.requestMatchers(AUTH_WHITELIST).permitAll())
-        .authorizeHttpRequests(authorizeRequests -> authorizeRequests.anyRequest().authenticated())
+            authorizeRequests ->
+                authorizeRequests
+                    .requestMatchers(AUTH_WHITELIST)
+                    .permitAll()
+                    .requestMatchers("/admin/**")
+                    .hasRole(RoleConstants.MADiE_ADMIN)
+                    .anyRequest()
+                    .authenticated())
         .sessionManagement(
             sessionManagement ->
                 sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .oauth2ResourceServer(
-            oAuth2ResourceServerConfigurer -> oAuth2ResourceServerConfigurer.jwt(withDefaults()))
+            oAuth2ResourceServerConfigurer ->
+                oAuth2ResourceServerConfigurer.jwt(
+                    jwt -> jwt.jwtAuthenticationConverter(userRoleConverter)))
+        .exceptionHandling(
+            exceptionHandling ->
+                exceptionHandling
+                    .accessDeniedHandler(securityExceptionHandlers)
+                    .authenticationEntryPoint(securityExceptionHandlers))
         .headers(
             headers ->
                 headers

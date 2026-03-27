@@ -51,8 +51,7 @@ public class AdminControllerTest {
   @Test
   void refreshAllUsers() {
     // when
-    ResponseEntity<Object> response =
-        adminController.refreshAllUsers(request, apiKey, principal, null);
+    ResponseEntity<Object> response = adminController.refreshAllUsers(request, principal, null);
 
     // then
     assertThat(response.getStatusCode(), is(HttpStatus.ACCEPTED));
@@ -68,7 +67,7 @@ public class AdminControllerTest {
             UserLoginDto.builder().harpId("user2").lastLoginAt(Instant.now()).build());
     when(userService.getAllMadieUsers()).thenReturn(users);
 
-    ResponseEntity<Object> response = adminController.getLastLogin(request, apiKey, principal);
+    ResponseEntity<Object> response = adminController.getLastLogin(request, principal);
 
     assertThat(response.getStatusCode(), is(HttpStatus.OK));
     Assertions.assertNotNull(response.getBody());
@@ -79,7 +78,7 @@ public class AdminControllerTest {
   void getLastLoginReturnsEmptyListWhenNoUsers() {
     when(userService.getAllMadieUsers()).thenReturn(Collections.emptyList());
 
-    ResponseEntity<Object> response = adminController.getLastLogin(request, apiKey, principal);
+    ResponseEntity<Object> response = adminController.getLastLogin(request, principal);
 
     assertThat(response.getStatusCode(), is(HttpStatus.OK));
     Assertions.assertNotNull(response.getBody());

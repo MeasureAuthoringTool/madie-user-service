@@ -1,6 +1,5 @@
 package gov.cms.madie.user.controllers;
 
-import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -124,15 +122,11 @@ public class UserController {
     if (StringUtils.isBlank(harpId)) {
       throw new InvalidHarpIdException("Harp Ids cannot be null or empty");
     }
-    MadieUser user = userService.getUserByHarpId(harpId);
-    if (user == null || CollectionUtils.isEmpty(user.getRoles())) {
+    UserRolesDto userRolesDto = userService.getUserRoles(harpId);
+    if (userRolesDto == null) {
       throw new InvalidHarpIdException(
           "Harp Id: " + harpId + " is not found or does not have roles");
     }
-
-    List<String> roleNames =
-        user.getRoles().stream().map(HarpRole::getRole).collect(Collectors.toList());
-    UserRolesDto response = new UserRolesDto(user.getHarpId(), roleNames);
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(userRolesDto);
   }
 }

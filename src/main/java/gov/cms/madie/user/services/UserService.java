@@ -4,6 +4,7 @@ import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.models.dto.UserRolesDto;
 import gov.cms.madie.user.config.HarpConfig;
 import gov.cms.madie.user.repositories.UserRepository;
 import gov.cms.madie.user.dto.*;
@@ -94,6 +95,16 @@ public class UserService {
                     .lastName(user.getLastName())
                     .build())
         .orElse(null);
+  }
+
+  public UserRolesDto getUserRoles(String harpId) {
+    MadieUser user = getUserByHarpId(harpId);
+    if (user == null || CollectionUtils.isEmpty(user.getRoles())) {
+      return null;
+    }
+    List<String> roleNames =
+        user.getRoles().stream().map(HarpRole::getRole).collect(Collectors.toList());
+    return new UserRolesDto(user.getHarpId(), roleNames);
   }
 
   /**

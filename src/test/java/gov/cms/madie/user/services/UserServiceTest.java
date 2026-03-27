@@ -744,6 +744,71 @@ class UserServiceTest {
     return response;
   }
 
+  @Test
+  void getUserRolesReturnsUserRolesDtoWhenUserHasRoles() {
+    // given
+    HarpRole role = HarpRole.builder().role("MADiE-User").roleType("Group").build();
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("testUser")
+            .roles(List.of(role))
+            .status(UserStatus.ACTIVE)
+            .build();
+    when(userRepository.findByHarpId("testuser")).thenReturn(Optional.of(user));
+    // when
+    gov.cms.madie.models.dto.UserRolesDto result = userService.getUserRoles("testUser");
+    // then
+    assertThat(result, is(notNullValue()));
+    assertThat(result.getHarpId(), is("testUser"));
+    assertThat(result.getRoles(), contains("MADiE-User"));
+  }
+
+  @Test
+  void getUserRolesReturnsNullWhenUserNotFound() {
+    // given
+    String harpId = "unknownUser";
+    when(userRepository.findByHarpId("unknownuser")).thenReturn(Optional.empty());
+    // when
+    gov.cms.madie.models.dto.UserRolesDto result = userService.getUserRoles(harpId);
+    // then
+    assertNull(result);
+  }
+
+  @Test
+  void getUserRolesReturnsNullWhenUserHasEmptyRoles() {
+    // given
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("testUser")
+            .roles(List.of())
+            .status(UserStatus.DEACTIVATED)
+            .build();
+    when(userRepository.findByHarpId("testuser")).thenReturn(Optional.of(user));
+    // when
+    gov.cms.madie.models.dto.UserRolesDto result = userService.getUserRoles("testUser");
+    // then
+    assertNull(result);
+  }
+
+  @Test
+  void getUserRolesReturnsMultipleRoles() {
+    // given
+    HarpRole role1 = HarpRole.builder().role("MADiE-User").roleType("Group").build();
+    HarpRole role2 = HarpRole.builder().role("MADiE-Admin").roleType("Group").build();
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("adminUser")
+            .roles(List.of(role1, role2))
+            .status(UserStatus.ACTIVE)
+            .build();
+    when(userRepository.findByHarpId("adminuser")).thenReturn(Optional.of(user));
+    // when
+    gov.cms.madie.models.dto.UserRolesDto result = userService.getUserRoles("adminUser");
+    // then
+    assertThat(result, is(notNullValue()));
+    assertThat(result.getRoles(), containsInAnyOrder("MADiE-User", "MADiE-Admin"));
+  }
+
   private MadieUser createExistingUser() {
     return MadieUser.builder()
         .harpId("harper")

@@ -1,6 +1,5 @@
 package gov.cms.madie.user.controllers;
 
-import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.dto.DetailsRequestDto;
 import gov.cms.madie.models.dto.UserDetailsDto;
@@ -325,14 +324,9 @@ class UserControllerTest {
   @Test
   void getUserRolesReturnsMadieUserRole() {
     // given
-    MadieUser user =
-        MadieUser.builder()
-            .harpId("123")
-            .roles(List.of(HarpRole.builder().roleType("Group").role("MADiE-User").build()))
-            .build();
     UserRolesDto reponseDto =
         UserRolesDto.builder().harpId("123").roles(List.of("MADiE-User")).build();
-    when(userService.getUserByHarpId("123")).thenReturn(user);
+    when(userService.getUserRoles("123")).thenReturn(reponseDto);
     // when
     ResponseEntity<UserRolesDto> response = userController.getUserRoles("123", principal);
     // then
@@ -350,7 +344,7 @@ class UserControllerTest {
 
   @Test
   void getUserRolesMadieUserNotFound() {
-    when(userService.getUserByHarpId("123")).thenReturn(null);
+    when(userService.getUserRoles("123")).thenReturn(null);
     InvalidHarpIdException exception =
         assertThrows(
             InvalidHarpIdException.class, () -> userController.getUserRoles("123", principal));
@@ -359,8 +353,7 @@ class UserControllerTest {
 
   @Test
   void getUserRolesMadieUserDoesNotHaveRoles() {
-    MadieUser user = MadieUser.builder().harpId("123").roles(List.of()).build();
-    when(userService.getUserByHarpId("123")).thenReturn(user);
+    when(userService.getUserRoles("123")).thenReturn(null);
     InvalidHarpIdException exception =
         assertThrows(
             InvalidHarpIdException.class, () -> userController.getUserRoles("123", principal));
