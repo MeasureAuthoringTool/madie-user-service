@@ -4,7 +4,9 @@ import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.models.dto.UserDetailsDto;
+import gov.cms.madie.models.dto.UserRolesDto;
 import gov.cms.madie.user.config.SecurityConfig;
+import gov.cms.madie.user.config.security.SecurityExceptionHandlers;
 import gov.cms.madie.user.services.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest({UserController.class})
 @ActiveProfiles("test")
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, SecurityExceptionHandlers.class})
 public class UserControllerMvcTest {
 
   @Autowired private MockMvc mockMvc;
@@ -240,14 +242,9 @@ public class UserControllerMvcTest {
   void getUserRolesByHarpIdSuccessfully() throws Exception {
     // Given
     String harpId = "harper";
-    MadieUser user =
-        MadieUser.builder()
-            .harpId(harpId)
-            .firstName("John")
-            .lastName("Doe")
-            .roles(List.of(HarpRole.builder().role("MADiE-Admin").roleType("Group").build()))
-            .build();
-    when(userService.getUserByHarpId(harpId)).thenReturn(user);
+    UserRolesDto reponseDto =
+        UserRolesDto.builder().harpId(harpId).roles(List.of("MADiE-Admin")).build();
+    when(userService.getUserRoles(harpId)).thenReturn(reponseDto);
 
     // When & Then
     mockMvc
@@ -258,14 +255,14 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.harpId", is(harpId)))
         .andExpect(jsonPath("$.roles[0]", is("MADiE-Admin")));
 
-    verify(userService, times(1)).getUserByHarpId(harpId);
+    verify(userService, times(1)).getUserRoles(harpId);
   }
 
   @Test
   @WithMockUser(username = "testuser")
   void getUserRolesMadieUserNotFound() throws Exception {
     String harpId = "nonexistent";
-    when(userService.getUserByHarpId(harpId)).thenReturn(null);
+    when(userService.getUserRoles(harpId)).thenReturn(null);
 
     mockMvc
         .perform(
@@ -274,39 +271,6 @@ public class UserControllerMvcTest {
         .andExpect(jsonPath("$.error", is("Bad Request")))
         .andExpect(jsonPath("$.message", containsString("Harp Id: " + harpId + " is not found")));
 
-    verify(userService, times(1)).getUserByHarpId(harpId);
-  }
-
-  @Test
-  @WithMockUser(username = "testuser")
-  void getUserRolesMadieUserDoesNotHaveRoles() throws Exception {
-
-    String harpId = "userWithoutRoles";
-    MadieUser user =
-        MadieUser.builder()
-            .harpId(harpId)
-            .firstName("John")
-            .lastName("Doe")
-            .roles(List.of())
-            .build();
-    when(userService.getUserByHarpId(harpId)).thenReturn(user);
-
-    try {
-      mockMvc
-          .perform(
-              get("/users/" + harpId + "/roles")
-                  .with(csrf())
-                  .contentType(MediaType.APPLICATION_JSON))
-          .andExpect(status().isBadRequest())
-          .andExpect(jsonPath("$.error", is("Bad Request")))
-          .andExpect(
-              jsonPath(
-                  "$.message",
-                  containsString("Harp Id: " + harpId + " is not found or does not have roles")));
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-
-    verify(userService, times(1)).getUserByHarpId(harpId);
+    verify(userService, times(1)).getUserRoles(harpId);
   }
 }

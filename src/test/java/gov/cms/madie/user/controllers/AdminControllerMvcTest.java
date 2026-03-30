@@ -1,6 +1,8 @@
 package gov.cms.madie.user.controllers;
 
 import gov.cms.madie.user.config.SecurityConfig;
+import gov.cms.madie.user.config.security.RoleConstants;
+import gov.cms.madie.user.config.security.SecurityExceptionHandlers;
 import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
@@ -28,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest({AdminController.class})
 @ActiveProfiles("test")
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, RoleConstants.class, SecurityExceptionHandlers.class})
 public class AdminControllerMvcTest {
 
   @Autowired private MockMvc mockMvc;
@@ -38,7 +40,9 @@ public class AdminControllerMvcTest {
   private static final String ADMIN_TEST_API_KEY = "0a51991c";
 
   @Test
-  @WithMockUser(username = "admin")
+  @WithMockUser(
+      username = "admin",
+      roles = {"MADIE-ADMIN"})
   void refreshAllUsersSuccessfullyTriggersJob() throws Exception {
     UserUpdatesJobResultDto results =
         UserUpdatesJobResultDto.builder()
@@ -67,13 +71,42 @@ public class AdminControllerMvcTest {
                 .with(csrf())
                 .header("api-key", ADMIN_TEST_API_KEY)
                 .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.status").value(401))
+        .andExpect(jsonPath("$.error").value("Unauthorized"))
+        .andExpect(
+            jsonPath("$.message").value("Authentication is required to access this resource"))
+        .andExpect(jsonPath("$.path").value("/admin/users/refresh"));
 
     verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually(null);
   }
 
   @Test
-  @WithMockUser(username = "admin")
+  @WithMockUser(
+      username = "regularUser",
+      roles = {"MADIE-USER"})
+  void refreshAllUsersReturnsForbiddenForNonAdminUser() throws Exception {
+    mockMvc
+        .perform(
+            put("/admin/users/refresh")
+                .with(csrf())
+                .header("api-key", ADMIN_TEST_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403))
+        .andExpect(jsonPath("$.error").value("Forbidden"))
+        .andExpect(
+            jsonPath("$.message")
+                .value("User does not have the required role to access this resource"))
+        .andExpect(jsonPath("$.path").value("/admin/users/refresh"));
+
+    verify(updateUserJobScheduler, never()).triggerUpdateUsersJobManually(null);
+  }
+
+  @Test
+  @WithMockUser(
+      username = "admin",
+      roles = {"MADIE-ADMIN"})
   void refreshAllUsersRequiresCsrfToken() throws Exception {
     mockMvc
         .perform(
@@ -86,7 +119,9 @@ public class AdminControllerMvcTest {
   }
 
   @Test
-  @WithMockUser(username = "admin")
+  @WithMockUser(
+      username = "admin",
+      roles = {"MADIE-ADMIN"})
   void getLastLoginReturnsUserList() throws Exception {
     List<UserLoginDto> users =
         List.of(
@@ -113,7 +148,9 @@ public class AdminControllerMvcTest {
   }
 
   @Test
-  @WithMockUser(username = "admin")
+  @WithMockUser(
+      username = "admin",
+      roles = {"MADIE-ADMIN"})
   void getLastLoginReturnsEmptyListWhenNoUsers() throws Exception {
     when(userService.getAllMadieUsers()).thenReturn(Collections.emptyList());
 
@@ -136,7 +173,33 @@ public class AdminControllerMvcTest {
             get("/admin/users/last-login")
                 .header("api-key", ADMIN_TEST_API_KEY)
                 .contentType(MediaType.APPLICATION_JSON))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.status").value(401))
+        .andExpect(jsonPath("$.error").value("Unauthorized"))
+        .andExpect(
+            jsonPath("$.message").value("Authentication is required to access this resource"))
+        .andExpect(jsonPath("$.path").value("/admin/users/last-login"));
+
+    verify(userService, never()).getAllMadieUsers();
+  }
+
+  @Test
+  @WithMockUser(
+      username = "regularUser",
+      roles = {"MADIE-USER"})
+  void getLastLoginReturnsForbiddenForNonAdminUser() throws Exception {
+    mockMvc
+        .perform(
+            get("/admin/users/last-login")
+                .header("api-key", ADMIN_TEST_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403))
+        .andExpect(jsonPath("$.error").value("Forbidden"))
+        .andExpect(
+            jsonPath("$.message")
+                .value("User does not have the required role to access this resource"))
+        .andExpect(jsonPath("$.path").value("/admin/users/last-login"));
 
     verify(userService, never()).getAllMadieUsers();
   }
