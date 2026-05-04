@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -31,6 +32,13 @@ public class UserController {
   private String harpOverrideTestId;
 
   private final UserService userService;
+
+  @GetMapping
+  public ResponseEntity<List<MadieUser>> getAllUsers(Principal principal) {
+    log.info("User [{}] - Getting all users", principal.getName());
+    List<MadieUser> users = userService.getAllUsers();
+    return ResponseEntity.ok(users);
+  }
 
   @GetMapping("/{harpId}")
   public ResponseEntity<MadieUser> getUser(@PathVariable String harpId, Principal principal) {

@@ -359,4 +359,32 @@ class UserControllerTest {
             InvalidHarpIdException.class, () -> userController.getUserRoles("123", principal));
     assertThat(exception.getMessage(), is("Harp Id: 123 is not found or does not have roles"));
   }
+
+  @Test
+  void getAllUsersReturnsListOfUsers() {
+    List<MadieUser> users =
+        List.of(
+            MadieUser.builder().harpId("user1").build(),
+            MadieUser.builder().harpId("user2").build());
+    when(userService.getAllUsers()).thenReturn(users);
+
+    ResponseEntity<List<MadieUser>> response = userController.getAllUsers(principal);
+
+    assertThat(response.getStatusCode(), is(HttpStatus.OK));
+    assertThat(response.getBody(), hasSize(2));
+    assertThat(response.getBody().get(0).getHarpId(), is("user1"));
+    assertThat(response.getBody().get(1).getHarpId(), is("user2"));
+    verify(userService).getAllUsers();
+  }
+
+  @Test
+  void getAllUsersReturnsEmptyList() {
+    when(userService.getAllUsers()).thenReturn(List.of());
+
+    ResponseEntity<List<MadieUser>> response = userController.getAllUsers(principal);
+
+    assertThat(response.getStatusCode(), is(HttpStatus.OK));
+    assertThat(response.getBody(), is(empty()));
+    verify(userService).getAllUsers();
+  }
 }

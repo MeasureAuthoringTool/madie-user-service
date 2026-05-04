@@ -327,4 +327,8 @@ public class UserService {
   public List<UserLoginDto> getAllMadieUsers() {
     return userRepository.findAllProjectedBy();
   }
+
+  public List<MadieUser> getAllUsers() {
+    return userRepository.findAll();
+  }
 }
