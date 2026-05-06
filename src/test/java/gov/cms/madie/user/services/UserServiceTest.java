@@ -849,4 +849,30 @@ class UserServiceTest {
     when(harpProxyService.fetchUserRoles(anyString(), anyString())).thenReturn(rolesWrapper);
     when(userRepository.findByHarpId(anyString())).thenReturn(Optional.of(existingUser));
   }
+
+  @Test
+  void getAllUsersReturnsAllUsers() {
+    List<MadieUser> expectedUsers =
+        List.of(
+            MadieUser.builder().harpId("user1").status(UserStatus.ACTIVE).build(),
+            MadieUser.builder().harpId("user2").status(UserStatus.DEACTIVATED).build());
+    when(userRepository.findAll()).thenReturn(expectedUsers);
+
+    List<MadieUser> result = userService.getAllUsers();
+
+    assertThat(result, hasSize(2));
+    assertThat(result.get(0).getHarpId(), is("user1"));
+    assertThat(result.get(1).getHarpId(), is("user2"));
+    verify(userRepository).findAll();
+  }
+
+  @Test
+  void getAllUsersReturnsEmptyListWhenNoUsers() {
+    when(userRepository.findAll()).thenReturn(Collections.emptyList());
+
+    List<MadieUser> result = userService.getAllUsers();
+
+    assertThat(result, empty());
+    verify(userRepository).findAll();
+  }
 }
