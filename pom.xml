@@ -5,7 +5,7 @@
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
     <version>3.5.14</version>
-    <relativePath></relativePath>
+    <relativePath/>
     <!-- lookup parent from repository -->
   </parent>
   <groupId>gov.cms.madie</groupId>
@@ -13,18 +13,18 @@
   <version>0.0.1-SNAPSHOT</version>
   <name>MADiE User Service</name>
   <description>User Service for MADiE</description>
-  <url></url>
+  <url/>
   <licenses>
-    <license></license>
+    <license/>
   </licenses>
   <developers>
-    <developer></developer>
+    <developer/>
   </developers>
   <scm>
-    <connection></connection>
-    <developerConnection></developerConnection>
-    <tag></tag>
-    <url></url>
+    <connection/>
+    <developerConnection/>
+    <tag/>
+    <url/>
   </scm>
   <properties>
     <java.version>17</java.version>
@@ -91,7 +91,7 @@
     <dependency>
       <groupId>com.okta.spring</groupId>
       <artifactId>okta-spring-boot-starter</artifactId>
-      <version>3.0.7</version>
+      <version>3.1.0</version>
     </dependency>
 
     <dependency>
@@ -164,7 +164,7 @@
                     </goals>
                   </pluginExecutionFilter>
                   <action>
-                    <ignore></ignore>
+                    <ignore/>
                   </action>
                 </pluginExecution>
               </pluginExecutions>
@@ -241,7 +241,7 @@
           <configLocation>${mvn.checkstyle.file}</configLocation>
           <suppressionsLocation>suppressions.xml</suppressionsLocation>
           <suppressionsFileExpression>checkstyle.suppressions.file</suppressionsFileExpression>
-          <excludes></excludes>
+          <excludes/>
         </configuration>
       </plugin>
       <plugin>
