@@ -111,8 +111,7 @@ class HarpProxyServiceTest {
             .errorSummary("User not found")
             .details("user id1 not found")
             .build();
-    String errorJson =
-        new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorResponse);
+    String errorJson = new tools.jackson.databind.ObjectMapper().writeValueAsString(errorResponse);
     HttpStatusCodeException ex =
         new HttpStatusCodeException(
             HttpStatus.INTERNAL_SERVER_ERROR,
@@ -124,7 +123,7 @@ class HarpProxyServiceTest {
         .thenThrow(ex);
     HarpProxyService service =
         new HarpProxyService(
-            harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
+            harpConfig, harpRestTemplate, new tools.jackson.databind.ObjectMapper());
     HarpResponseWrapper<UserRolesResponse> result = service.fetchUserRoles(harpId, token);
     assertThat(result.getError().getErrorCode(), is("ERR-ROLECREATION-027"));
     assertThat(result.getStatusCode(), is(HttpStatus.INTERNAL_SERVER_ERROR));
@@ -143,8 +142,7 @@ class HarpProxyServiceTest {
             .errorSummary("Some other error")
             .details("unexpected error")
             .build();
-    String errorJson =
-        new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorResponse);
+    String errorJson = new tools.jackson.databind.ObjectMapper().writeValueAsString(errorResponse);
     HttpStatusCodeException ex =
         new HttpStatusCodeException(
             HttpStatus.BAD_REQUEST,
@@ -156,7 +154,7 @@ class HarpProxyServiceTest {
         .thenThrow(ex);
     HarpProxyService service =
         new HarpProxyService(
-            harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
+            harpConfig, harpRestTemplate, new tools.jackson.databind.ObjectMapper());
     HarpResponseWrapper<UserRolesResponse> result = service.fetchUserRoles(harpId, token);
     assertThat(result.getError().getErrorCode(), is("ERR-OTHER"));
     assertThat(result.getStatusCode(), is(HttpStatus.BAD_REQUEST));
@@ -181,7 +179,7 @@ class HarpProxyServiceTest {
         .thenThrow(ex);
     HarpProxyService service =
         new HarpProxyService(
-            harpConfig, harpRestTemplate, new com.fasterxml.jackson.databind.ObjectMapper());
+            harpConfig, harpRestTemplate, new tools.jackson.databind.ObjectMapper());
     HarpResponseWrapper<UserRolesResponse> result = service.fetchUserRoles(harpId, token);
     assertThat(result.getError(), is(nullValue()));
     assertThat(result.getStatusCode(), is(HttpStatus.INTERNAL_SERVER_ERROR));
