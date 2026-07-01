@@ -1,5 +1,7 @@
 package gov.cms.madie.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +19,9 @@ public class UserRole {
   private String roleType;
   private String roleValue;
   private String startDate;
+
+  @JsonProperty("soRole")
   private boolean isSoRole;
+
   private String systemName;
 }

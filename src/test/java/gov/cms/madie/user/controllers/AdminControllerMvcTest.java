@@ -3,15 +3,17 @@ package gov.cms.madie.user.controllers;
 import gov.cms.madie.user.config.SecurityConfig;
 import gov.cms.madie.user.config.security.RoleConstants;
 import gov.cms.madie.user.config.security.SecurityExceptionHandlers;
+import gov.cms.madie.user.config.security.UserRoleConverter;
 import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
 import gov.cms.madie.user.services.UserService;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -30,13 +32,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest({AdminController.class})
 @ActiveProfiles("test")
-@Import({SecurityConfig.class, RoleConstants.class, SecurityExceptionHandlers.class})
+@Import({
+  SecurityConfig.class,
+  RoleConstants.class,
+  SecurityExceptionHandlers.class,
+  UserRoleConverter.class
+})
 public class AdminControllerMvcTest {
 
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private UserService userService;
   @MockitoBean private UpdateUserJobScheduler updateUserJobScheduler;
+  @MockitoBean private JwtDecoder jwtDecoder;
   private static final String ADMIN_TEST_API_KEY = "0a51991c";
 
   @Test
