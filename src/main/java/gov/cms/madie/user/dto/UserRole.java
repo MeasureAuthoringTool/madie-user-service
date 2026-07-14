@@ -20,8 +20,8 @@ public class UserRole {
   private String roleValue;
   private String startDate;
 
-  @JsonProperty("soRole")
-  private boolean isSoRole;
+  @JsonProperty("isSoRole")
+  private Boolean isSoRole;
 
   private String systemName;
 }
