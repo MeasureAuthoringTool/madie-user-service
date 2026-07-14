@@ -9,6 +9,7 @@ import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.DefaultUriBuilderFactory;
 
@@ -54,7 +55,8 @@ public class HarpConfig {
   @Profile("!test")
   @Bean(name = "harpRestTemplate")
   public RestTemplate harpRestTemplate(RestTemplateBuilder builder) {
-    RestTemplate restTemplate = builder.build();
+    RestTemplate restTemplate =
+        builder.requestFactory(HttpComponentsClientHttpRequestFactory::new).build();
     restTemplate.setUriTemplateHandler(new DefaultUriBuilderFactory(baseUrl));
     return restTemplate;
   }
