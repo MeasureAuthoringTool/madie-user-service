@@ -43,17 +43,13 @@ public class UserService {
   }
 
   public MadieUser getUserByHarpId(String harpId) {
-    return MadieUser.builder()
-        .harpId(harpId)
-        .roles(List.of(HarpRole.builder().role("MADIE-ADMIN").build()))
-        .build();
-    //    return userRepository
-    //        .findByHarpId(StringUtils.toRootLowerCase(harpId))
-    //        .orElseGet(
-    //            () -> {
-    //              log.warn("User not found in database for HARP ID: {}", harpId);
-    //              return MadieUser.builder().harpId(harpId).build();
-    //            });
+    return userRepository
+      .findByHarpId(StringUtils.toRootLowerCase(harpId))
+      .orElseGet(
+        () -> {
+          log.warn("User not found in database for HARP ID: {}", harpId);
+          return MadieUser.builder().harpId(harpId).build();
+        });
   }
 
   public MadieUser refreshUserRolesAndLogin(String harpId) {
