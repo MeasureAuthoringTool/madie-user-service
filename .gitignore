@@ -37,3 +37,6 @@ build/
 **/*.log
 *.gz
 .dccache
+
+### Ignore .bak files
+*.bak
