@@ -44,12 +44,12 @@ public class UserService {
 
   public MadieUser getUserByHarpId(String harpId) {
     return userRepository
-      .findByHarpId(StringUtils.toRootLowerCase(harpId))
-      .orElseGet(
-        () -> {
-          log.warn("User not found in database for HARP ID: {}", harpId);
-          return MadieUser.builder().harpId(harpId).build();
-        });
+        .findByHarpId(StringUtils.toRootLowerCase(harpId))
+        .orElseGet(
+            () -> {
+              log.warn("User not found in database for HARP ID: {}", harpId);
+              return MadieUser.builder().harpId(harpId).build();
+            });
   }
 
   public MadieUser refreshUserRolesAndLogin(String harpId) {
