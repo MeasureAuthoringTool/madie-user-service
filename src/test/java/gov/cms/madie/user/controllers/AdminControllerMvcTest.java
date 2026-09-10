@@ -6,6 +6,7 @@ import gov.cms.madie.user.config.security.SecurityExceptionHandlers;
 import gov.cms.madie.user.config.security.UserRoleConverter;
 import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.dto.UserUpdatesJobResultDto;
+import gov.cms.madie.user.services.UserExportService;
 import gov.cms.madie.user.services.UserService;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import org.junit.jupiter.api.Test;
@@ -19,11 +20,14 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.hamcrest.Matchers.matchesPattern;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -44,8 +48,11 @@ public class AdminControllerMvcTest {
 
   @MockitoBean private UserService userService;
   @MockitoBean private UpdateUserJobScheduler updateUserJobScheduler;
+  @MockitoBean private UserExportService userExportService;
   @MockitoBean private JwtDecoder jwtDecoder;
   private static final String ADMIN_TEST_API_KEY = "0a51991c";
+  private static final String XLSX_MEDIA_TYPE =
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
   @Test
   @WithMockUser(
@@ -210,5 +217,54 @@ public class AdminControllerMvcTest {
         .andExpect(jsonPath("$.path").value("/admin/users/last-login"));
 
     verify(userService, never()).getAllMadieUsers();
+  }
+
+  @Test
+  @WithMockUser(
+      username = "admin",
+      roles = {"MADIE-ADMIN"})
+  void exportUsersReturnsWorkbookForAdmin() throws Exception {
+    byte[] workbook = "fake-xlsx-bytes".getBytes(StandardCharsets.UTF_8);
+    when(userExportService.generateUserExport(any())).thenReturn(workbook);
+
+    mockMvc
+        .perform(get("/admin/users/export").accept(XLSX_MEDIA_TYPE))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(XLSX_MEDIA_TYPE))
+        .andExpect(
+            header()
+                .string(
+                    "Content-Disposition",
+                    matchesPattern("attachment; filename=\"UserExport_\\d{8}_\\d{6}\\.xlsx\"")))
+        .andExpect(content().bytes(workbook));
+
+    verify(userExportService, times(1)).generateUserExport(any());
+  }
+
+  @Test
+  @WithMockUser(
+      username = "regularUser",
+      roles = {"MADIE-USER"})
+  void exportUsersReturnsForbiddenForNonAdminUser() throws Exception {
+    mockMvc
+        .perform(get("/admin/users/export").accept(XLSX_MEDIA_TYPE))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403))
+        .andExpect(jsonPath("$.error").value("Forbidden"))
+        .andExpect(jsonPath("$.path").value("/admin/users/export"));
+
+    verify(userExportService, never()).generateUserExport(any());
+  }
+
+  @Test
+  void exportUsersRequiresAuthentication() throws Exception {
+    mockMvc
+        .perform(get("/admin/users/export").accept(XLSX_MEDIA_TYPE))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.status").value(401))
+        .andExpect(jsonPath("$.error").value("Unauthorized"))
+        .andExpect(jsonPath("$.path").value("/admin/users/export"));
+
+    verify(userExportService, never()).generateUserExport(any());
   }
 }
