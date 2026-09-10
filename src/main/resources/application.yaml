@@ -54,3 +54,7 @@ okta:
   oauth2:
     issuer: ${OKTA_ISSUER:https://dev-madie.okta.com/oauth2/default}
     audience: ${OKTA_AUDIENCE:api://default}
+
+excel-export-service:
+  base-url: ${EXCEL_EXPORT_SERVICE_URL:http://localhost:3000/api}
+
