@@ -59,7 +59,7 @@ public class UserExportService {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
     headers.setAccept(List.of(MediaType.parseMediaType(XLSX_MEDIA_TYPE)));
-    // Forward the caller's auth downstream if the excel-export service requires it.
+
     if (StringUtils.isNotBlank(authorizationHeader)) {
       headers.set(HttpHeaders.AUTHORIZATION, authorizationHeader);
     }
