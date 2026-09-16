@@ -331,4 +331,24 @@ public class UserService {
   public List<MadieUser> getAllUsers() {
     return userRepository.findAll();
   }
+
+  /**
+   * Fetch users for the provided HARP IDs (case-insensitive). Returns an empty list when no IDs are
+   * given.
+   *
+   * @param harpIds the HARP IDs to look up
+   * @return the matching users
+   */
+  public List<MadieUser> getUsersByHarpIds(List<String> harpIds) {
+    if (CollectionUtils.isEmpty(harpIds)) {
+      return List.of();
+    }
+    List<String> normalized =
+        harpIds.stream()
+            .filter(StringUtils::isNotBlank)
+            .map(StringUtils::toRootLowerCase)
+            .distinct()
+            .toList();
+    return userRepository.findAllByHarpIdIn(normalized);
+  }
 }

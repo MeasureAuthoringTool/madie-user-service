@@ -1,5 +1,6 @@
 package gov.cms.madie.user.controllers;
 
+import gov.cms.madie.user.dto.UserExportRequestDto;
 import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import gov.cms.madie.user.services.UserExportService;
@@ -28,6 +29,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -95,9 +97,10 @@ public class AdminControllerTest {
   @Test
   void exportUsersReturnsWorkbookWithCorrectHeaders() {
     byte[] workbook = "fake-xlsx-bytes".getBytes(StandardCharsets.UTF_8);
-    when(userExportService.generateUserExport(any())).thenReturn(workbook);
+    when(userExportService.generateUserExport(any(), any())).thenReturn(workbook);
 
-    ResponseEntity<byte[]> response = adminController.exportUsers("Bearer test-token", principal);
+    ResponseEntity<byte[]> response =
+        adminController.exportUsers("Bearer test-token", null, principal);
 
     assertThat(response.getStatusCode(), is(HttpStatus.OK));
     assertThat(
@@ -107,5 +110,21 @@ public class AdminControllerTest {
         response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION),
         matchesPattern("attachment; filename=\"UserExport_\\d{8}_\\d{6}\\.xlsx\""));
     assertThat(response.getBody(), is(workbook));
+    // Null body => export all users
+    verify(userExportService).generateUserExport("Bearer test-token", null);
+  }
+
+  @Test
+  void exportUsersPassesSelectedHarpIdsToService() {
+    byte[] workbook = "fake-xlsx-bytes".getBytes(StandardCharsets.UTF_8);
+    when(userExportService.generateUserExport(any(), any())).thenReturn(workbook);
+    UserExportRequestDto exportRequest =
+        UserExportRequestDto.builder().harpIds(List.of("harp1", "harp2")).build();
+
+    ResponseEntity<byte[]> response =
+        adminController.exportUsers("Bearer test-token", exportRequest, principal);
+
+    assertThat(response.getStatusCode(), is(HttpStatus.OK));
+    verify(userExportService).generateUserExport("Bearer test-token", List.of("harp1", "harp2"));
   }
 }

@@ -225,10 +225,10 @@ public class AdminControllerMvcTest {
       roles = {"MADIE-ADMIN"})
   void exportUsersReturnsWorkbookForAdmin() throws Exception {
     byte[] workbook = "fake-xlsx-bytes".getBytes(StandardCharsets.UTF_8);
-    when(userExportService.generateUserExport(any())).thenReturn(workbook);
+    when(userExportService.generateUserExport(any(), any())).thenReturn(workbook);
 
     mockMvc
-        .perform(get("/admin/users/export").accept(XLSX_MEDIA_TYPE))
+        .perform(put("/admin/users/export").with(csrf()).accept(XLSX_MEDIA_TYPE))
         .andExpect(status().isOk())
         .andExpect(content().contentType(XLSX_MEDIA_TYPE))
         .andExpect(
@@ -238,7 +238,7 @@ public class AdminControllerMvcTest {
                     matchesPattern("attachment; filename=\"UserExport_\\d{8}_\\d{6}\\.xlsx\"")))
         .andExpect(content().bytes(workbook));
 
-    verify(userExportService, times(1)).generateUserExport(any());
+    verify(userExportService, times(1)).generateUserExport(any(), any());
   }
 
   @Test
@@ -247,24 +247,24 @@ public class AdminControllerMvcTest {
       roles = {"MADIE-USER"})
   void exportUsersReturnsForbiddenForNonAdminUser() throws Exception {
     mockMvc
-        .perform(get("/admin/users/export").accept(XLSX_MEDIA_TYPE))
+        .perform(put("/admin/users/export").with(csrf()).accept(XLSX_MEDIA_TYPE))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.status").value(403))
         .andExpect(jsonPath("$.error").value("Forbidden"))
         .andExpect(jsonPath("$.path").value("/admin/users/export"));
 
-    verify(userExportService, never()).generateUserExport(any());
+    verify(userExportService, never()).generateUserExport(any(), any());
   }
 
   @Test
   void exportUsersRequiresAuthentication() throws Exception {
     mockMvc
-        .perform(get("/admin/users/export").accept(XLSX_MEDIA_TYPE))
+        .perform(put("/admin/users/export").with(csrf()).accept(XLSX_MEDIA_TYPE))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.status").value(401))
         .andExpect(jsonPath("$.error").value("Unauthorized"))
         .andExpect(jsonPath("$.path").value("/admin/users/export"));
 
-    verify(userExportService, never()).generateUserExport(any());
+    verify(userExportService, never()).generateUserExport(any(), any());
   }
 }
