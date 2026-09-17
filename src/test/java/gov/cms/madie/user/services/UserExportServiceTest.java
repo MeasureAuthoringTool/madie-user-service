@@ -8,7 +8,6 @@ import gov.cms.madie.user.config.ExcelExportServiceConfig;
 import gov.cms.madie.user.dto.MeasureDTO;
 import gov.cms.madie.user.dto.UserExportRequest;
 import gov.cms.madie.user.dto.UserExportRow;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,25 +50,18 @@ class UserExportServiceTest {
   @Captor private ArgumentCaptor<HttpEntity<UserExportRequest>> entityCaptor;
 
   private UserExportService userExportService;
-  private UserExportExecutor exportExecutor;
 
   private static final String AUTH = "Bearer test-token";
 
   @BeforeEach
   void setUp() {
-    exportExecutor = new UserExportExecutor(4);
     userExportService =
         new UserExportService(
             excelExportServiceConfig,
             excelExportRestTemplate,
             userService,
             measureServiceClient,
-            exportExecutor);
-  }
-
-  @AfterEach
-  void tearDown() {
-    exportExecutor.shutdown();
+            4);
   }
 
   private MeasureDTO measure(
@@ -128,6 +120,7 @@ class UserExportServiceTest {
                 List.of(
                     HarpRole.builder().role("MADiE-Admin").build(),
                     HarpRole.builder().role("MADiE-User").build()))
+            .accessStartAt(Instant.parse("2025-12-01T08:00:00Z"))
             .lastLoginAt(Instant.parse("2026-01-15T10:30:00Z"))
             .build();
     when(userService.getAllUsers()).thenReturn(List.of(user));
@@ -149,7 +142,7 @@ class UserExportServiceTest {
     assertThat(row.getUserStatus(), is("ACTIVE"));
     assertThat(row.getRoles(), is("MADiE-Admin, MADiE-User"));
     assertThat(row.getLastLogin(), is("2026-01-15 10:30:00"));
-    assertThat(row.getApproval(), is(nullValue()));
+    assertThat(row.getApproval(), is("2025-12-01 08:00:00"));
     assertThat(row.getOwnedMeasureName(), is(nullValue()));
     assertThat(row.getMeasureError(), is(nullValue()));
   }
