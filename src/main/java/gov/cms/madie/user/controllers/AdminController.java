@@ -1,6 +1,7 @@
 package gov.cms.madie.user.controllers;
 
 import gov.cms.madie.user.config.security.AdminOnly;
+import gov.cms.madie.user.dto.UserExportRequestDto;
 import gov.cms.madie.user.dto.UserLoginDto;
 import gov.cms.madie.user.services.UpdateUserJobScheduler;
 import gov.cms.madie.user.services.UserExportService;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -54,15 +56,18 @@ public class AdminController {
     return ResponseEntity.ok(lastLoginTimes);
   }
 
-  @GetMapping(value = "/users/export", produces = UserExportService.XLSX_MEDIA_TYPE)
+  @PutMapping(value = "/users/export", produces = UserExportService.XLSX_MEDIA_TYPE)
   public ResponseEntity<byte[]> exportUsers(
       @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+      @RequestBody(required = false) UserExportRequestDto exportRequest,
       Principal principal) {
+    List<String> harpIds = exportRequest == null ? null : exportRequest.getHarpIds();
     log.info(
-        "User [{}] - Generating Full User Export",
-        principal != null ? principal.getName() : "unknown");
+        "User [{}] - Generating User Export ({})",
+        principal != null ? principal.getName() : "unknown",
+        CollectionUtils.isEmpty(harpIds) ? "all users" : harpIds.size() + " selected user(s)");
 
-    byte[] workbook = userExportService.generateUserExport(authorization);
+    byte[] workbook = userExportService.generateUserExport(authorization, harpIds);
 
     String filename = "UserExport_" + LocalDateTime.now().format(FILENAME_TIMESTAMP) + ".xlsx";
 

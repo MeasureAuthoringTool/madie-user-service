@@ -875,4 +875,23 @@ class UserServiceTest {
     assertThat(result, empty());
     verify(userRepository).findAll();
   }
+
+  @Test
+  void getUsersByHarpIdsReturnsEmptyForNullOrEmpty() {
+    assertThat(userService.getUsersByHarpIds(null), empty());
+    assertThat(userService.getUsersByHarpIds(Collections.emptyList()), empty());
+    verify(userRepository, never()).findAllByHarpIdIn(anyList());
+  }
+
+  @Test
+  void getUsersByHarpIdsNormalizesAndQueries() {
+    List<MadieUser> expected = List.of(MadieUser.builder().harpId("harp1").build());
+    when(userRepository.findAllByHarpIdIn(List.of("harp1", "harp2"))).thenReturn(expected);
+
+    // Mixed case, blank, and duplicate inputs are normalized to lowercase + distinct
+    List<MadieUser> result = userService.getUsersByHarpIds(List.of("HARP1", " ", "Harp2", "harp1"));
+
+    assertThat(result, is(expected));
+    verify(userRepository).findAllByHarpIdIn(List.of("harp1", "harp2"));
+  }
 }

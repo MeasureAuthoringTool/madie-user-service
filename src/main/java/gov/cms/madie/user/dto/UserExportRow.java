@@ -59,4 +59,8 @@ public class UserExportRow {
   private String sharedLibraryModel;
   private String sharedLibraryOwner;
   private String sharedLibraryUpdated;
+
+  // --- Error markers (not a spreadsheet column) ---
+  /** When set, excel-export renders this message in red in the Owned Measure Name column. */
+  private String measureError;
 }

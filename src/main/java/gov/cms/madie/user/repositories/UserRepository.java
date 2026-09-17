@@ -15,6 +15,14 @@ public interface UserRepository extends MongoRepository<MadieUser, String>, User
   Optional<MadieUser> findByHarpId(String harpId);
 
   /**
+   * Fetch all users whose HARP ID is in the provided list.
+   *
+   * @param harpIds list of (lowercased) HARP IDs
+   * @return matching users
+   */
+  List<MadieUser> findAllByHarpIdIn(List<String> harpIds);
+
+  /**
    * Count how many MadieUsers exist for the provided list of HARP IDs.
    *
    * @param harpIds list of HARP IDs to check

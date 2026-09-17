@@ -58,3 +58,6 @@ okta:
 excel-export-service:
   base-url: ${EXCEL_EXPORT_SERVICE_URL:http://localhost:3000/api}
 
+measure-service:
+  base-url: ${MEASURE_SERVICE_URL:http://localhost:8080/api}
+
