@@ -235,6 +235,41 @@ class UserExportServiceTest {
   }
 
   @Test
+  void buildRowsHandlesMeasuresWithNullMetadataAndMeasureSet() {
+    MadieUser user = MadieUser.builder().harpId("harp3").displayName("Nulls").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+
+    // Owned measure with no measureMetaData and no measureSet -> null status and null cmsId.
+    MeasureDTO ownedNoMeta =
+        MeasureDTO.builder()
+            .measureName("Owned NoMeta")
+            .version("1.0.000")
+            .model("QI-Core v4.1.1")
+            .build();
+    // Shared measure with blank ownerDisplayName and no measureSet -> null owner and null status.
+    MeasureDTO sharedNoOwner =
+        MeasureDTO.builder()
+            .measureName("Shared NoOwner")
+            .version("2.0.000")
+            .model("QDM v5.6")
+            .ownerDisplayName("   ")
+            .build();
+    when(measureServiceClient.getMeasuresForUser("harp3", OwnershipType.OWNED, AUTH))
+        .thenReturn(List.of(ownedNoMeta));
+    when(measureServiceClient.getMeasuresForUser("harp3", OwnershipType.SHARED, AUTH))
+        .thenReturn(List.of(sharedNoOwner));
+
+    UserExportRow row = userExportService.buildRows(AUTH, null).get(0);
+
+    assertThat(row.getOwnedMeasureName(), is("Owned NoMeta"));
+    assertThat(row.getOwnedMeasureStatus(), is(nullValue())); // null measureMetaData
+    assertThat(row.getOwnedMeasureCmsId(), is(nullValue())); // null measureSet
+    assertThat(row.getSharedMeasureName(), is("Shared NoOwner"));
+    assertThat(row.getSharedMeasureStatus(), is(nullValue())); // null measureMetaData
+    assertThat(row.getSharedMeasureOwner(), is(nullValue())); // blank display name + null set
+  }
+
+  @Test
   void buildRowsProcessesMultipleUsersConcurrentlyAndPreservesOrder() {
     MadieUser userA = MadieUser.builder().harpId("harpA").displayName("Alice").build();
     MadieUser userB = MadieUser.builder().harpId("harpB").displayName("Bob").build();
