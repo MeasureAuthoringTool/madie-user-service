@@ -57,7 +57,11 @@ class UserExportServiceTest {
   void setUp() {
     userExportService =
         new UserExportService(
-            excelExportServiceConfig, excelExportRestTemplate, userService, measureServiceClient);
+            excelExportServiceConfig,
+            excelExportRestTemplate,
+            userService,
+            measureServiceClient,
+            4);
   }
 
   private MeasureDTO measure(
@@ -116,6 +120,7 @@ class UserExportServiceTest {
                 List.of(
                     HarpRole.builder().role("MADiE-Admin").build(),
                     HarpRole.builder().role("MADiE-User").build()))
+            .accessStartAt(Instant.parse("2025-12-01T08:00:00Z"))
             .lastLoginAt(Instant.parse("2026-01-15T10:30:00Z"))
             .build();
     when(userService.getAllUsers()).thenReturn(List.of(user));
@@ -137,7 +142,7 @@ class UserExportServiceTest {
     assertThat(row.getUserStatus(), is("ACTIVE"));
     assertThat(row.getRoles(), is("MADiE-Admin, MADiE-User"));
     assertThat(row.getLastLogin(), is("2026-01-15 10:30:00"));
-    assertThat(row.getApproval(), is(nullValue()));
+    assertThat(row.getApproval(), is("2025-12-01 08:00:00"));
     assertThat(row.getOwnedMeasureName(), is(nullValue()));
     assertThat(row.getMeasureError(), is(nullValue()));
   }
@@ -220,6 +225,59 @@ class UserExportServiceTest {
     assertThat(row.getMeasureError(), is("Unable to retrieve this user"));
     assertThat(row.getOwnedMeasureName(), is(nullValue()));
     assertThat(row.getSharedMeasureName(), is(nullValue()));
+  }
+
+  @Test
+  void buildRowsHandlesMeasuresWithNullMetadataAndMeasureSet() {
+    MadieUser user = MadieUser.builder().harpId("harp3").displayName("Nulls").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+
+    // Owned measure with no measureMetaData and no measureSet -> null status and null cmsId.
+    MeasureDTO ownedNoMeta =
+        MeasureDTO.builder()
+            .measureName("Owned NoMeta")
+            .version("1.0.000")
+            .model("QI-Core v4.1.1")
+            .build();
+    // Shared measure with blank ownerDisplayName and no measureSet -> null owner and null status.
+    MeasureDTO sharedNoOwner =
+        MeasureDTO.builder()
+            .measureName("Shared NoOwner")
+            .version("2.0.000")
+            .model("QDM v5.6")
+            .ownerDisplayName("   ")
+            .build();
+    when(measureServiceClient.getMeasuresForUser("harp3", OwnershipType.OWNED, AUTH))
+        .thenReturn(List.of(ownedNoMeta));
+    when(measureServiceClient.getMeasuresForUser("harp3", OwnershipType.SHARED, AUTH))
+        .thenReturn(List.of(sharedNoOwner));
+
+    UserExportRow row = userExportService.buildRows(AUTH, null).get(0);
+
+    assertThat(row.getOwnedMeasureName(), is("Owned NoMeta"));
+    assertThat(row.getOwnedMeasureStatus(), is(nullValue())); // null measureMetaData
+    assertThat(row.getOwnedMeasureCmsId(), is(nullValue())); // null measureSet
+    assertThat(row.getSharedMeasureName(), is("Shared NoOwner"));
+    assertThat(row.getSharedMeasureStatus(), is(nullValue())); // null measureMetaData
+    assertThat(row.getSharedMeasureOwner(), is(nullValue())); // blank display name + null set
+  }
+
+  @Test
+  void buildRowsProcessesMultipleUsersConcurrentlyAndPreservesOrder() {
+    MadieUser userA = MadieUser.builder().harpId("harpA").displayName("Alice").build();
+    MadieUser userB = MadieUser.builder().harpId("harpB").displayName("Bob").build();
+    MadieUser userC = MadieUser.builder().harpId("harpC").displayName("Carol").build();
+    when(userService.getAllUsers()).thenReturn(List.of(userA, userB, userC));
+    when(measureServiceClient.getMeasuresForUser(anyString(), any(), any()))
+        .thenReturn(Collections.emptyList());
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    // One metadata row per user, in the original user order.
+    assertThat(rows, hasSize(3));
+    assertThat(rows.get(0).getUserDisplayName(), is("Alice"));
+    assertThat(rows.get(1).getUserDisplayName(), is("Bob"));
+    assertThat(rows.get(2).getUserDisplayName(), is("Carol"));
   }
 
   @Test

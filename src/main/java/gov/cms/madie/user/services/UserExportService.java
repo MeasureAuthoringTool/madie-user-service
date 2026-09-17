@@ -10,6 +10,7 @@ import gov.cms.madie.user.dto.UserExportRow;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -28,6 +29,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -55,15 +59,20 @@ public class UserExportService {
   private final UserService userService;
   private final MeasureServiceClient measureServiceClient;
 
+  /** Maximum number of users whose measures are fetched from measure-service in parallel. */
+  private final int exportConcurrency;
+
   public UserExportService(
       ExcelExportServiceConfig excelExportServiceConfig,
       @Qualifier("excelExportRestTemplate") RestTemplate excelExportRestTemplate,
       UserService userService,
-      MeasureServiceClient measureServiceClient) {
+      MeasureServiceClient measureServiceClient,
+      @Value("${user-export.concurrency:16}") int exportConcurrency) {
     this.excelExportServiceConfig = excelExportServiceConfig;
     this.excelExportRestTemplate = excelExportRestTemplate;
     this.userService = userService;
     this.measureServiceClient = measureServiceClient;
+    this.exportConcurrency = Math.max(1, exportConcurrency);
   }
 
   /**
@@ -136,11 +145,26 @@ public class UserExportService {
     if (CollectionUtils.isEmpty(users)) {
       return Collections.emptyList();
     }
-    List<UserExportRow> rows = new ArrayList<>();
-    for (MadieUser user : users) {
-      rows.addAll(buildRowsForUser(user, authorizationHeader));
+    // Fetch each user's measures in parallel using a small pool bounded by exportConcurrency, which
+    // caps the load placed on measure-service. The pool is created for this request and always shut
+    // down; results are joined in the original user order so the export layout is unchanged.
+    ExecutorService pool = Executors.newFixedThreadPool(Math.min(users.size(), exportConcurrency));
+    try {
+      List<CompletableFuture<List<UserExportRow>>> futures =
+          users.stream()
+              .map(
+                  user ->
+                      CompletableFuture.supplyAsync(
+                          () -> buildRowsForUser(user, authorizationHeader), pool))
+              .toList();
+      List<UserExportRow> rows = new ArrayList<>();
+      for (CompletableFuture<List<UserExportRow>> future : futures) {
+        rows.addAll(future.join());
+      }
+      return rows;
+    } finally {
+      pool.shutdown();
     }
-    return rows;
   }
 
   private List<UserExportRow> buildRowsForUser(MadieUser user, String authorizationHeader) {
@@ -189,8 +213,8 @@ public class UserExportService {
         .emailAddress(user.getEmail())
         .userStatus(user.getStatus() == null ? null : user.getStatus().name())
         .roles(formatRoles(user.getRoles()))
+        .approval(formatInstant(user.getAccessStartAt()))
         .lastLogin(formatInstant(user.getLastLoginAt()));
-    // "approval" (column 8): no user-level approval concept exists yet — intentionally left blank.
   }
 
   private void applyOwnedMeasure(UserExportRow.UserExportRowBuilder builder, MeasureDTO measure) {
