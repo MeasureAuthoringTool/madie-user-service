@@ -54,16 +54,19 @@ public class UserExportService {
   private final RestTemplate excelExportRestTemplate;
   private final UserService userService;
   private final MeasureServiceClient measureServiceClient;
+  private final UserExportExecutor exportExecutor;
 
   public UserExportService(
       ExcelExportServiceConfig excelExportServiceConfig,
       @Qualifier("excelExportRestTemplate") RestTemplate excelExportRestTemplate,
       UserService userService,
-      MeasureServiceClient measureServiceClient) {
+      MeasureServiceClient measureServiceClient,
+      UserExportExecutor exportExecutor) {
     this.excelExportServiceConfig = excelExportServiceConfig;
     this.excelExportRestTemplate = excelExportRestTemplate;
     this.userService = userService;
     this.measureServiceClient = measureServiceClient;
+    this.exportExecutor = exportExecutor;
   }
 
   /**
@@ -136,9 +139,14 @@ public class UserExportService {
     if (CollectionUtils.isEmpty(users)) {
       return Collections.emptyList();
     }
+    // Fan out the per-user measure lookups across the bounded worker pool. Each user's downstream
+    // calls still run within a single task, but users are processed concurrently. Results are
+    // returned in the original user order so the export layout is unchanged.
+    List<List<UserExportRow>> perUserRows =
+        exportExecutor.mapOrdered(users, user -> buildRowsForUser(user, authorizationHeader));
     List<UserExportRow> rows = new ArrayList<>();
-    for (MadieUser user : users) {
-      rows.addAll(buildRowsForUser(user, authorizationHeader));
+    for (List<UserExportRow> userRows : perUserRows) {
+      rows.addAll(userRows);
     }
     return rows;
   }

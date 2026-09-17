@@ -8,6 +8,7 @@ import gov.cms.madie.user.config.ExcelExportServiceConfig;
 import gov.cms.madie.user.dto.MeasureDTO;
 import gov.cms.madie.user.dto.UserExportRequest;
 import gov.cms.madie.user.dto.UserExportRow;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,14 +51,25 @@ class UserExportServiceTest {
   @Captor private ArgumentCaptor<HttpEntity<UserExportRequest>> entityCaptor;
 
   private UserExportService userExportService;
+  private UserExportExecutor exportExecutor;
 
   private static final String AUTH = "Bearer test-token";
 
   @BeforeEach
   void setUp() {
+    exportExecutor = new UserExportExecutor(4);
     userExportService =
         new UserExportService(
-            excelExportServiceConfig, excelExportRestTemplate, userService, measureServiceClient);
+            excelExportServiceConfig,
+            excelExportRestTemplate,
+            userService,
+            measureServiceClient,
+            exportExecutor);
+  }
+
+  @AfterEach
+  void tearDown() {
+    exportExecutor.shutdown();
   }
 
   private MeasureDTO measure(
@@ -220,6 +232,24 @@ class UserExportServiceTest {
     assertThat(row.getMeasureError(), is("Unable to retrieve this user"));
     assertThat(row.getOwnedMeasureName(), is(nullValue()));
     assertThat(row.getSharedMeasureName(), is(nullValue()));
+  }
+
+  @Test
+  void buildRowsProcessesMultipleUsersConcurrentlyAndPreservesOrder() {
+    MadieUser userA = MadieUser.builder().harpId("harpA").displayName("Alice").build();
+    MadieUser userB = MadieUser.builder().harpId("harpB").displayName("Bob").build();
+    MadieUser userC = MadieUser.builder().harpId("harpC").displayName("Carol").build();
+    when(userService.getAllUsers()).thenReturn(List.of(userA, userB, userC));
+    when(measureServiceClient.getMeasuresForUser(anyString(), any(), any()))
+        .thenReturn(Collections.emptyList());
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    // One metadata row per user, in the original user order.
+    assertThat(rows, hasSize(3));
+    assertThat(rows.get(0).getUserDisplayName(), is("Alice"));
+    assertThat(rows.get(1).getUserDisplayName(), is("Bob"));
+    assertThat(rows.get(2).getUserDisplayName(), is("Carol"));
   }
 
   @Test
