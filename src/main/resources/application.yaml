@@ -60,8 +60,6 @@ excel-export-service:
 
 measure-service:
   base-url: ${MEASURE_SERVICE_URL:http://localhost:8080/api}
-  # Connection pool must be >= user-export.concurrency so the parallel export fan-out is not
-  # throttled by the per-route connection limit.
   max-connections: ${MEASURE_SERVICE_MAX_CONNECTIONS:20}
   connect-timeout-millis: ${MEASURE_SERVICE_CONNECT_TIMEOUT_MS:5000}
   response-timeout-millis: ${MEASURE_SERVICE_RESPONSE_TIMEOUT_MS:60000}

@@ -46,8 +46,6 @@ public class MeasureServiceConfig {
             .setConnectTimeout(Timeout.ofMilliseconds(connectTimeoutMillis))
             .build();
 
-    // Raise total/per-route limits above the HttpClient defaults (25 total / 5 per route) so the
-    // concurrent per-user export calls to the single measure-service route are not serialized.
     PoolingHttpClientConnectionManager connectionManager =
         PoolingHttpClientConnectionManagerBuilder.create()
             .setMaxConnTotal(maxConnections)
