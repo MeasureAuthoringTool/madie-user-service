@@ -36,9 +36,6 @@ public class MeasureServiceConfig {
   /** Timeout for establishing a TCP connection, in milliseconds. */
   private long connectTimeoutMillis = 5_000;
 
-  /** Timeout for leasing a connection from the pool, in milliseconds. */
-  private long connectionRequestTimeoutMillis = 5_000;
-
   /** Timeout for receiving a response after the request is sent, in milliseconds. */
   private long responseTimeoutMillis = 60_000;
 
@@ -60,7 +57,6 @@ public class MeasureServiceConfig {
 
     RequestConfig requestConfig =
         RequestConfig.custom()
-            .setConnectionRequestTimeout(Timeout.ofMilliseconds(connectionRequestTimeoutMillis))
             .setResponseTimeout(Timeout.ofMilliseconds(responseTimeoutMillis))
             .build();
 
