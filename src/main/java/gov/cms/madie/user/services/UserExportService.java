@@ -2,15 +2,14 @@ package gov.cms.madie.user.services;
 
 import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
-import gov.cms.madie.models.common.OwnershipType;
 import gov.cms.madie.user.config.ExcelExportServiceConfig;
 import gov.cms.madie.user.dto.MeasureDTO;
 import gov.cms.madie.user.dto.UserExportRequest;
 import gov.cms.madie.user.dto.UserExportRow;
+import gov.cms.madie.user.dto.UserMeasuresDto;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -29,9 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -59,20 +56,15 @@ public class UserExportService {
   private final UserService userService;
   private final MeasureServiceClient measureServiceClient;
 
-  /** Maximum number of users whose measures are fetched from measure-service in parallel. */
-  private final int exportConcurrency;
-
   public UserExportService(
       ExcelExportServiceConfig excelExportServiceConfig,
       @Qualifier("excelExportRestTemplate") RestTemplate excelExportRestTemplate,
       UserService userService,
-      MeasureServiceClient measureServiceClient,
-      @Value("${user-export.concurrency:16}") int exportConcurrency) {
+      MeasureServiceClient measureServiceClient) {
     this.excelExportServiceConfig = excelExportServiceConfig;
     this.excelExportRestTemplate = excelExportRestTemplate;
     this.userService = userService;
     this.measureServiceClient = measureServiceClient;
-    this.exportConcurrency = Math.max(1, exportConcurrency);
   }
 
   /**
@@ -127,13 +119,12 @@ public class UserExportService {
    *
    * <p>Produces one or more rows per MADiE user. User Metadata (columns 1-9) is written on the
    * user's first row only. A user's owned and shared measures (columns 10-22) are fetched from the
-   * measure-service and fanned out so that row {@code i} carries the {@code i}-th owned and shared
-   * measure; a user therefore contributes {@code max(ownedCount, sharedCount, 1)} rows. If the
-   * measure lookup fails, a single row is emitted with an error marker (rendered in red in the
-   * Owned Measure Name column). Library columns (23-33) are future work.
+   * measure-service in a single bulk call and fanned out so that row {@code i} carries the {@code
+   * i}-th owned and shared measure; a user therefore contributes {@code max(ownedCount, sharedCount,
+   * 1)} rows. If the bulk lookup fails, each user gets a single row with an error marker (rendered
+   * in red in the Owned Measure Name column). Library columns (23-33) are future work.
    *
-   * @param authorizationHeader the admin caller's Authorization header, forwarded to
-   *     measure-service
+   * @param authorizationHeader the admin caller's Authorization header, forwarded to measure-service
    * @param harpIds the users to export; when null/empty, all users are exported
    * @return the flattened export rows across all users
    */
@@ -145,45 +136,50 @@ public class UserExportService {
     if (CollectionUtils.isEmpty(users)) {
       return Collections.emptyList();
     }
-    // Fetch each user's measures in parallel using a small pool bounded by exportConcurrency, which
-    // caps the load placed on measure-service. The pool is created for this request and always shut
-    // down; results are joined in the original user order so the export layout is unchanged.
-    ExecutorService pool = Executors.newFixedThreadPool(Math.min(users.size(), exportConcurrency));
+
+    // Fetch every user's owned & shared measures in a single bulk call to measure-service, rather
+    // than two search calls per user. A failure degrades to per-user error rows below.
+    List<String> userHarpIds =
+        users.stream()
+            .map(MadieUser::getHarpId)
+            .filter(StringUtils::isNotBlank)
+            .map(String::toLowerCase)
+            .collect(Collectors.toList());
+    Map<String, UserMeasuresDto> measuresByUser;
     try {
-      List<CompletableFuture<List<UserExportRow>>> futures =
-          users.stream()
-              .map(
-                  user ->
-                      CompletableFuture.supplyAsync(
-                          () -> buildRowsForUser(user, authorizationHeader), pool))
-              .toList();
-      List<UserExportRow> rows = new ArrayList<>();
-      for (CompletableFuture<List<UserExportRow>> future : futures) {
-        rows.addAll(future.join());
-      }
-      return rows;
-    } finally {
-      pool.shutdown();
+      measuresByUser = measureServiceClient.getMeasuresForUsers(userHarpIds, authorizationHeader);
+    } catch (Exception ex) {
+      log.error("Unable to bulk-retrieve measures for {} user(s)", users.size(), ex);
+      measuresByUser = null;
     }
+
+    List<UserExportRow> rows = new ArrayList<>();
+    for (MadieUser user : users) {
+      rows.addAll(buildRowsForUser(user, measuresByUser));
+    }
+    return rows;
   }
 
-  private List<UserExportRow> buildRowsForUser(MadieUser user, String authorizationHeader) {
-    List<MeasureDTO> ownedMeasures;
-    List<MeasureDTO> sharedMeasures;
-    try {
-      ownedMeasures =
-          measureServiceClient.getMeasuresForUser(
-              user.getHarpId(), OwnershipType.OWNED, authorizationHeader);
-      sharedMeasures =
-          measureServiceClient.getMeasuresForUser(
-              user.getHarpId(), OwnershipType.SHARED, authorizationHeader);
-    } catch (Exception ex) {
-      log.error("Unable to retrieve measures for user [{}]", user.getHarpId(), ex);
+  private List<UserExportRow> buildRowsForUser(
+      MadieUser user, Map<String, UserMeasuresDto> measuresByUser) {
+    // A failed bulk fetch degrades to a single error row per user (rendered in red).
+    if (measuresByUser == null) {
       UserExportRow.UserExportRowBuilder errorRow = UserExportRow.builder();
       applyUserMetadata(errorRow, user);
       errorRow.measureError(MEASURE_FETCH_ERROR_MESSAGE);
       return List.of(errorRow.build());
     }
+
+    String harpKey = user.getHarpId() == null ? "" : user.getHarpId().toLowerCase();
+    UserMeasuresDto userMeasures = measuresByUser.getOrDefault(harpKey, new UserMeasuresDto());
+    List<MeasureDTO> ownedMeasures =
+        userMeasures.getOwnedMeasures() == null
+            ? Collections.emptyList()
+            : userMeasures.getOwnedMeasures();
+    List<MeasureDTO> sharedMeasures =
+        userMeasures.getSharedMeasures() == null
+            ? Collections.emptyList()
+            : userMeasures.getSharedMeasures();
 
     int rowCount = Math.max(1, Math.max(ownedMeasures.size(), sharedMeasures.size()));
     List<UserExportRow> rows = new ArrayList<>(rowCount);

@@ -3,11 +3,11 @@ package gov.cms.madie.user.services;
 import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.access.UserStatus;
-import gov.cms.madie.models.common.OwnershipType;
 import gov.cms.madie.user.config.ExcelExportServiceConfig;
 import gov.cms.madie.user.dto.MeasureDTO;
 import gov.cms.madie.user.dto.UserExportRequest;
 import gov.cms.madie.user.dto.UserExportRow;
+import gov.cms.madie.user.dto.UserMeasuresDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -57,11 +58,7 @@ class UserExportServiceTest {
   void setUp() {
     userExportService =
         new UserExportService(
-            excelExportServiceConfig,
-            excelExportRestTemplate,
-            userService,
-            measureServiceClient,
-            4);
+            excelExportServiceConfig, excelExportRestTemplate, userService, measureServiceClient);
   }
 
   private MeasureDTO measure(
@@ -82,6 +79,10 @@ class UserExportServiceTest {
         .build();
   }
 
+  private UserMeasuresDto userMeasures(List<MeasureDTO> owned, List<MeasureDTO> shared) {
+    return new UserMeasuresDto(owned, shared);
+  }
+
   @Test
   void buildRowsReturnsEmptyWhenNoUsers() {
     when(userService.getAllUsers()).thenReturn(Collections.emptyList());
@@ -93,10 +94,7 @@ class UserExportServiceTest {
     MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
     List<String> harpIds = List.of("harp1");
     when(userService.getUsersByHarpIds(harpIds)).thenReturn(List.of(user));
-    when(measureServiceClient.getMeasuresForUser("harp1", OwnershipType.OWNED, AUTH))
-        .thenReturn(Collections.emptyList());
-    when(measureServiceClient.getMeasuresForUser("harp1", OwnershipType.SHARED, AUTH))
-        .thenReturn(Collections.emptyList());
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
 
     List<UserExportRow> rows = userExportService.buildRows(AUTH, harpIds);
 
@@ -124,10 +122,7 @@ class UserExportServiceTest {
             .lastLoginAt(Instant.parse("2026-01-15T10:30:00Z"))
             .build();
     when(userService.getAllUsers()).thenReturn(List.of(user));
-    when(measureServiceClient.getMeasuresForUser("harp1", OwnershipType.OWNED, AUTH))
-        .thenReturn(Collections.emptyList());
-    when(measureServiceClient.getMeasuresForUser("harp1", OwnershipType.SHARED, AUTH))
-        .thenReturn(Collections.emptyList());
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
 
     List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
 
@@ -151,10 +146,7 @@ class UserExportServiceTest {
   void buildRowsHandlesNullRolesStatusAndLastLogin() {
     MadieUser user = MadieUser.builder().harpId("harp2").build();
     when(userService.getAllUsers()).thenReturn(List.of(user));
-    when(measureServiceClient.getMeasuresForUser("harp2", OwnershipType.OWNED, AUTH))
-        .thenReturn(Collections.emptyList());
-    when(measureServiceClient.getMeasuresForUser("harp2", OwnershipType.SHARED, AUTH))
-        .thenReturn(Collections.emptyList());
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
 
     UserExportRow row = userExportService.buildRows(AUTH, null).get(0);
 
@@ -168,14 +160,17 @@ class UserExportServiceTest {
   void buildRowsFansOutOwnedAndSharedMeasuresToMaxRows() {
     MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
     when(userService.getAllUsers()).thenReturn(List.of(user));
-    when(measureServiceClient.getMeasuresForUser("harp1", OwnershipType.OWNED, AUTH))
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH)))
         .thenReturn(
-            List.of(
-                measure("Owned A", "1.0.000", true, "QI-Core v4.1.1", 1234, null),
-                measure("Owned B", "2.1.000", false, "QDM v5.6", null, null)));
-    when(measureServiceClient.getMeasuresForUser("harp1", OwnershipType.SHARED, AUTH))
-        .thenReturn(
-            List.of(measure("Shared X", "3.0.000", false, "QI-Core v4.1.1", 9876, "Owner Person")));
+            Map.of(
+                "harp1",
+                userMeasures(
+                    List.of(
+                        measure("Owned A", "1.0.000", true, "QI-Core v4.1.1", 1234, null),
+                        measure("Owned B", "2.1.000", false, "QDM v5.6", null, null)),
+                    List.of(
+                        measure(
+                            "Shared X", "3.0.000", false, "QI-Core v4.1.1", 9876, "Owner Person")))));
 
     List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
 
@@ -213,7 +208,7 @@ class UserExportServiceTest {
   void buildRowsEmitsRedErrorMarkerWhenMeasureFetchFails() {
     MadieUser user = MadieUser.builder().harpId("harp9").displayName("Broken User").build();
     when(userService.getAllUsers()).thenReturn(List.of(user));
-    when(measureServiceClient.getMeasuresForUser(eq("harp9"), eq(OwnershipType.OWNED), any()))
+    when(measureServiceClient.getMeasuresForUsers(anyList(), any()))
         .thenThrow(new RestClientException("measure-service down"));
 
     List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
@@ -247,10 +242,8 @@ class UserExportServiceTest {
             .model("QDM v5.6")
             .ownerDisplayName("   ")
             .build();
-    when(measureServiceClient.getMeasuresForUser("harp3", OwnershipType.OWNED, AUTH))
-        .thenReturn(List.of(ownedNoMeta));
-    when(measureServiceClient.getMeasuresForUser("harp3", OwnershipType.SHARED, AUTH))
-        .thenReturn(List.of(sharedNoOwner));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH)))
+        .thenReturn(Map.of("harp3", userMeasures(List.of(ownedNoMeta), List.of(sharedNoOwner))));
 
     UserExportRow row = userExportService.buildRows(AUTH, null).get(0);
 
@@ -263,13 +256,12 @@ class UserExportServiceTest {
   }
 
   @Test
-  void buildRowsProcessesMultipleUsersConcurrentlyAndPreservesOrder() {
+  void buildRowsPreservesUserOrder() {
     MadieUser userA = MadieUser.builder().harpId("harpA").displayName("Alice").build();
     MadieUser userB = MadieUser.builder().harpId("harpB").displayName("Bob").build();
     MadieUser userC = MadieUser.builder().harpId("harpC").displayName("Carol").build();
     when(userService.getAllUsers()).thenReturn(List.of(userA, userB, userC));
-    when(measureServiceClient.getMeasuresForUser(anyString(), any(), any()))
-        .thenReturn(Collections.emptyList());
+    when(measureServiceClient.getMeasuresForUsers(anyList(), any())).thenReturn(Map.of());
 
     List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
 
