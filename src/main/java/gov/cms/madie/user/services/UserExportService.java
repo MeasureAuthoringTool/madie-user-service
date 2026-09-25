@@ -137,8 +137,7 @@ public class UserExportService {
       return Collections.emptyList();
     }
 
-    // Fetch every user's owned & shared measures in a single bulk call to measure-service, rather
-    // than two search calls per user. A failure degrades to per-user error rows below.
+    // Fetch every user's owned & shared measures in a single bulk call to measure-service,
     List<String> userHarpIds =
         users.stream()
             .map(MadieUser::getHarpId)
