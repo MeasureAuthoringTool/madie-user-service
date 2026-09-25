@@ -84,7 +84,7 @@ class MeasureServiceClientTest {
             entityCaptor.capture(),
             any(ParameterizedTypeReference.class));
 
-    assertThat(urlCaptor.getValue(), is("http://measure:8080/api/admin/measures/bulk-export"));
+    assertThat(urlCaptor.getValue(), is("http://measure:8080/api/admin/measures/bulk-fetch-for-users"));
 
     HttpEntity<List<String>> sentEntity = entityCaptor.getValue();
     assertThat(sentEntity.getBody(), is(harpIds));

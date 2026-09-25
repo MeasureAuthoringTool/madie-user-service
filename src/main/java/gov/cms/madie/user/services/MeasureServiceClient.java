@@ -23,7 +23,7 @@ import java.util.Map;
 @Component
 public class MeasureServiceClient {
 
-  private static final String BULK_EXPORT_PATH = "/admin/measures/bulk-export";
+  private static final String BULK_EXPORT_PATH = "/admin/measures/bulk-fetch-for-users";
 
   private final MeasureServiceConfig measureServiceConfig;
   private final RestTemplate measureServiceRestTemplate;
