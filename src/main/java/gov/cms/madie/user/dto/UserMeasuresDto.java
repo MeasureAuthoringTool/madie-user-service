@@ -19,4 +19,3 @@ public class UserMeasuresDto {
   private List<MeasureDTO> ownedMeasures = new ArrayList<>();
   private List<MeasureDTO> sharedMeasures = new ArrayList<>();
 }
-

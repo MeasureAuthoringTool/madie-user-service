@@ -170,7 +170,12 @@ class UserExportServiceTest {
                         measure("Owned B", "2.1.000", false, "QDM v5.6", null, null)),
                     List.of(
                         measure(
-                            "Shared X", "3.0.000", false, "QI-Core v4.1.1", 9876, "Owner Person")))));
+                            "Shared X",
+                            "3.0.000",
+                            false,
+                            "QI-Core v4.1.1",
+                            9876,
+                            "Owner Person")))));
 
     List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
 

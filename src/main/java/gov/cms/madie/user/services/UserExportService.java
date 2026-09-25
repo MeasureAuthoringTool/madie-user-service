@@ -120,11 +120,13 @@ public class UserExportService {
    * <p>Produces one or more rows per MADiE user. User Metadata (columns 1-9) is written on the
    * user's first row only. A user's owned and shared measures (columns 10-22) are fetched from the
    * measure-service in a single bulk call and fanned out so that row {@code i} carries the {@code
-   * i}-th owned and shared measure; a user therefore contributes {@code max(ownedCount, sharedCount,
-   * 1)} rows. If the bulk lookup fails, each user gets a single row with an error marker (rendered
-   * in red in the Owned Measure Name column). Library columns (23-33) are future work.
+   * i}-th owned and shared measure; a user therefore contributes {@code max(ownedCount,
+   * sharedCount, 1)} rows. If the bulk lookup fails, each user gets a single row with an error
+   * marker (rendered in red in the Owned Measure Name column). Library columns (23-33) are future
+   * work.
    *
-   * @param authorizationHeader the admin caller's Authorization header, forwarded to measure-service
+   * @param authorizationHeader the admin caller's Authorization header, forwarded to
+   *     measure-service
    * @param harpIds the users to export; when null/empty, all users are exported
    * @return the flattened export rows across all users
    */

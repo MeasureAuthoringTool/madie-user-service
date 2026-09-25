@@ -17,10 +17,10 @@ import org.springframework.web.client.RestTemplate;
 @Data
 public class MeasureServiceConfig {
 
-    private String baseUrl;
+  private String baseUrl;
 
-    @Bean(name = "measureServiceRestTemplate")
-    public RestTemplate measureServiceRestTemplate(RestTemplateBuilder builder) {
-        return builder.requestFactory(HttpComponentsClientHttpRequestFactory::new).build();
-    }
+  @Bean(name = "measureServiceRestTemplate")
+  public RestTemplate measureServiceRestTemplate(RestTemplateBuilder builder) {
+    return builder.requestFactory(HttpComponentsClientHttpRequestFactory::new).build();
+  }
 }

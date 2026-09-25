@@ -1,9 +1,8 @@
 package gov.cms.madie.user.services;
 
-import gov.cms.madie.models.common.OwnershipType;
 import gov.cms.madie.user.config.MeasureServiceConfig;
 import gov.cms.madie.user.dto.MeasureDTO;
-import gov.cms.madie.user.dto.PageResponse;
+import gov.cms.madie.user.dto.UserMeasuresDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,10 +14,12 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -37,7 +38,7 @@ class MeasureServiceClientTest {
   @Mock private RestTemplate measureServiceRestTemplate;
 
   @Captor private ArgumentCaptor<String> urlCaptor;
-  @Captor private ArgumentCaptor<HttpEntity<Void>> entityCaptor;
+  @Captor private ArgumentCaptor<HttpEntity<List<String>>> entityCaptor;
 
   private MeasureServiceClient client;
 
@@ -50,19 +51,18 @@ class MeasureServiceClientTest {
     return MeasureDTO.builder().measureName(name).build();
   }
 
-  private PageResponse<MeasureDTO> page(List<MeasureDTO> content, boolean last) {
-    PageResponse<MeasureDTO> page = new PageResponse<>();
-    page.setContent(content);
-    page.setLast(last);
-    return page;
+  private UserMeasuresDto userMeasures(String owned, String shared) {
+    return new UserMeasuresDto(List.of(measure(owned)), List.of(measure(shared)));
   }
 
   @Test
-  void getMeasuresForUserFollowsPaginationAndForwardsAuth() {
+  void getMeasuresForUsersPostsToBulkEndpointForwardsAuthAndReturnsBody() {
     when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
-    doReturn(
-            ResponseEntity.ok(page(List.of(measure("A")), false)),
-            ResponseEntity.ok(page(List.of(measure("B")), true)))
+    Map<String, UserMeasuresDto> responseBody =
+        Map.of(
+            "harp1", userMeasures("A", "B"),
+            "harp2", userMeasures("C", "D"));
+    doReturn(ResponseEntity.ok(responseBody))
         .when(measureServiceRestTemplate)
         .exchange(
             anyString(),
@@ -70,58 +70,32 @@ class MeasureServiceClientTest {
             any(HttpEntity.class),
             any(ParameterizedTypeReference.class));
 
-    List<MeasureDTO> result = client.getMeasuresForUser("harp1", OwnershipType.OWNED, "Bearer tok");
+    List<String> harpIds = List.of("harp1", "harp2");
+    Map<String, UserMeasuresDto> result = client.getMeasuresForUsers(harpIds, "Bearer tok");
 
-    assertThat(result, hasSize(2));
-    assertThat(result.get(0).getMeasureName(), is("A"));
-    assertThat(result.get(1).getMeasureName(), is("B"));
+    assertThat(result, is(responseBody));
+    assertThat(result.get("harp1").getOwnedMeasures().get(0).getMeasureName(), is("A"));
+    assertThat(result.get("harp1").getSharedMeasures().get(0).getMeasureName(), is("B"));
 
-    verify(measureServiceRestTemplate, times(2))
-        .exchange(
-            urlCaptor.capture(),
-            eq(HttpMethod.PUT),
-            entityCaptor.capture(),
-            any(ParameterizedTypeReference.class));
-
-    List<String> urls = urlCaptor.getAllValues();
-    assertThat(urls.get(0), containsString("/admin/userProfile/harp1/measures/searches"));
-    assertThat(urls.get(0), containsString("ownershipTypes=OWNED"));
-    assertThat(urls.get(0), containsString("limit=100"));
-    assertThat(urls.get(0), containsString("page=0"));
-    assertThat(urls.get(1), containsString("page=1"));
-    assertThat(
-        entityCaptor.getValue().getHeaders().getFirst(HttpHeaders.AUTHORIZATION), is("Bearer tok"));
-  }
-
-  @Test
-  void getMeasuresForUserUsesSharedOwnershipAndOmitsBlankAuth() {
-    when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
-    doReturn(ResponseEntity.ok(page(List.of(), true)))
-        .when(measureServiceRestTemplate)
-        .exchange(
-            anyString(),
-            eq(HttpMethod.PUT),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class));
-
-    List<MeasureDTO> result = client.getMeasuresForUser("harp1", OwnershipType.SHARED, null);
-
-    assertThat(result, is(empty()));
     verify(measureServiceRestTemplate, times(1))
         .exchange(
             urlCaptor.capture(),
             eq(HttpMethod.PUT),
             entityCaptor.capture(),
             any(ParameterizedTypeReference.class));
-    assertThat(urlCaptor.getValue(), containsString("ownershipTypes=SHARED"));
-    assertThat(
-        entityCaptor.getValue().getHeaders().getFirst(HttpHeaders.AUTHORIZATION), is(nullValue()));
+
+    assertThat(urlCaptor.getValue(), is("http://measure:8080/api/admin/measures/bulk-export"));
+
+    HttpEntity<List<String>> sentEntity = entityCaptor.getValue();
+    assertThat(sentEntity.getBody(), is(harpIds));
+    assertThat(sentEntity.getHeaders().getContentType(), is(MediaType.APPLICATION_JSON));
+    assertThat(sentEntity.getHeaders().getFirst(HttpHeaders.AUTHORIZATION), is("Bearer tok"));
   }
 
   @Test
-  void getMeasuresForUserReturnsEmptyWhenBodyHasNoContent() {
+  void getMeasuresForUsersOmitsAuthHeaderWhenBlank() {
     when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
-    doReturn(ResponseEntity.ok(new PageResponse<MeasureDTO>()))
+    doReturn(ResponseEntity.ok(Map.of()))
         .when(measureServiceRestTemplate)
         .exchange(
             anyString(),
@@ -129,9 +103,59 @@ class MeasureServiceClientTest {
             any(HttpEntity.class),
             any(ParameterizedTypeReference.class));
 
-    List<MeasureDTO> result = client.getMeasuresForUser("harp1", OwnershipType.OWNED, "Bearer tok");
+    client.getMeasuresForUsers(List.of("harp1"), "   ");
 
-    assertThat(result, is(empty()));
+    verify(measureServiceRestTemplate, times(1))
+        .exchange(
+            anyString(),
+            eq(HttpMethod.PUT),
+            entityCaptor.capture(),
+            any(ParameterizedTypeReference.class));
+    assertThat(
+        entityCaptor.getValue().getHeaders().getFirst(HttpHeaders.AUTHORIZATION), is(nullValue()));
+    assertThat(
+        entityCaptor.getValue().getHeaders().getContentType(), is(MediaType.APPLICATION_JSON));
+  }
+
+  @Test
+  void getMeasuresForUsersSendsNullBodyWhenHarpIdsNull() {
+    when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
+    doReturn(ResponseEntity.ok(Map.of()))
+        .when(measureServiceRestTemplate)
+        .exchange(
+            anyString(),
+            eq(HttpMethod.PUT),
+            any(HttpEntity.class),
+            any(ParameterizedTypeReference.class));
+
+    client.getMeasuresForUsers(null, null);
+
+    verify(measureServiceRestTemplate, times(1))
+        .exchange(
+            anyString(),
+            eq(HttpMethod.PUT),
+            entityCaptor.capture(),
+            any(ParameterizedTypeReference.class));
+    assertThat(entityCaptor.getValue().getBody(), is(nullValue()));
+    assertThat(
+        entityCaptor.getValue().getHeaders().getFirst(HttpHeaders.AUTHORIZATION), is(nullValue()));
+  }
+
+  @Test
+  void getMeasuresForUsersReturnsEmptyMapWhenBodyNull() {
+    when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
+    doReturn(ResponseEntity.ok(null))
+        .when(measureServiceRestTemplate)
+        .exchange(
+            anyString(),
+            eq(HttpMethod.PUT),
+            any(HttpEntity.class),
+            any(ParameterizedTypeReference.class));
+
+    Map<String, UserMeasuresDto> result =
+        client.getMeasuresForUsers(List.of("harp1"), "Bearer tok");
+
+    assertThat(result, is(anEmptyMap()));
     verify(measureServiceRestTemplate, times(1))
         .exchange(
             anyString(),

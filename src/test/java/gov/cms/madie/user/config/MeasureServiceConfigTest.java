@@ -26,32 +26,4 @@ class MeasureServiceConfigTest {
         restTemplate.getRequestFactory(),
         is(instanceOf(HttpComponentsClientHttpRequestFactory.class)));
   }
-
-  @Test
-  void hasSensibleConnectionPoolDefaults() {
-    MeasureServiceConfig config = new MeasureServiceConfig();
-
-    assertThat(config.getMaxConnections(), is(20));
-    assertThat(config.getConnectTimeoutMillis(), is(5_000L));
-    assertThat(config.getResponseTimeoutMillis(), is(60_000L));
-  }
-
-  @Test
-  void buildsRestTemplateWithCustomPoolAndTimeouts() {
-    MeasureServiceConfig config = new MeasureServiceConfig();
-    config.setBaseUrl("http://measure:8080/api");
-    config.setMaxConnections(50);
-    config.setConnectTimeoutMillis(1_000L);
-    config.setResponseTimeoutMillis(3_000L);
-
-    assertThat(config.getMaxConnections(), is(50));
-    assertThat(config.getConnectTimeoutMillis(), is(1_000L));
-    assertThat(config.getResponseTimeoutMillis(), is(3_000L));
-
-    RestTemplate restTemplate = config.measureServiceRestTemplate(new RestTemplateBuilder());
-    assertThat(restTemplate, notNullValue());
-    assertThat(
-        restTemplate.getRequestFactory(),
-        is(instanceOf(HttpComponentsClientHttpRequestFactory.class)));
-  }
 }
