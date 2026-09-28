@@ -3,9 +3,11 @@ package gov.cms.madie.user.services;
 import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.user.config.ExcelExportServiceConfig;
+import gov.cms.madie.user.dto.LibraryDTO;
 import gov.cms.madie.user.dto.MeasureDTO;
 import gov.cms.madie.user.dto.UserExportRequest;
 import gov.cms.madie.user.dto.UserExportRow;
+import gov.cms.madie.user.dto.UserLibrariesDto;
 import gov.cms.madie.user.dto.UserMeasuresDto;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -55,16 +57,19 @@ public class UserExportService {
   private final RestTemplate excelExportRestTemplate;
   private final UserService userService;
   private final MeasureServiceClient measureServiceClient;
+  private final CqlLibraryServiceClient cqlLibraryServiceClient;
 
   public UserExportService(
       ExcelExportServiceConfig excelExportServiceConfig,
       @Qualifier("excelExportRestTemplate") RestTemplate excelExportRestTemplate,
       UserService userService,
-      MeasureServiceClient measureServiceClient) {
+      MeasureServiceClient measureServiceClient,
+      CqlLibraryServiceClient cqlLibraryServiceClient) {
     this.excelExportServiceConfig = excelExportServiceConfig;
     this.excelExportRestTemplate = excelExportRestTemplate;
     this.userService = userService;
     this.measureServiceClient = measureServiceClient;
+    this.cqlLibraryServiceClient = cqlLibraryServiceClient;
   }
 
   /**
@@ -120,10 +125,10 @@ public class UserExportService {
    * <p>Produces one or more rows per MADiE user. User Metadata (columns 1-9) is written on the
    * user's first row only. A user's owned and shared measures (columns 10-22) are fetched from the
    * measure-service in a single bulk call and fanned out so that row {@code i} carries the {@code
-   * i}-th owned and shared measure; a user therefore contributes {@code max(ownedCount,
-   * sharedCount, 1)} rows. If the bulk lookup fails, each user gets a single row with an error
-   * marker (rendered in red in the Owned Measure Name column). Library columns (23-33) are future
-   * work.
+   * i}-th owned/shared measure and owned/shared library; a user therefore contributes {@code
+   * max(ownedMeasureCount, sharedMeasureCount, ownedLibraryCount, sharedLibraryCount, 1)} rows. If
+   * the bulk measure lookup fails, the first row for each user carries an error marker (rendered in
+   * red in the Owned Measure Name column), while library data is still populated when available.
    *
    * @param authorizationHeader the admin caller's Authorization header, forwarded to
    *     measure-service
@@ -154,25 +159,36 @@ public class UserExportService {
       measuresByUser = null;
     }
 
+    Map<String, UserLibrariesDto> librariesByUser;
+    try {
+      librariesByUser =
+          cqlLibraryServiceClient.getLibrariesForUsers(userHarpIds, authorizationHeader);
+    } catch (Exception ex) {
+      log.error("Unable to bulk-retrieve libraries for {} user(s)", users.size(), ex);
+      librariesByUser = null;
+    }
+
     List<UserExportRow> rows = new ArrayList<>();
     for (MadieUser user : users) {
-      rows.addAll(buildRowsForUser(user, measuresByUser));
+      rows.addAll(buildRowsForUser(user, measuresByUser, librariesByUser));
     }
     return rows;
   }
 
   private List<UserExportRow> buildRowsForUser(
-      MadieUser user, Map<String, UserMeasuresDto> measuresByUser) {
-    // A failed bulk fetch degrades to a single error row per user (rendered in red).
-    if (measuresByUser == null) {
-      UserExportRow.UserExportRowBuilder errorRow = UserExportRow.builder();
-      applyUserMetadata(errorRow, user);
-      errorRow.measureError(MEASURE_FETCH_ERROR_MESSAGE);
-      return List.of(errorRow.build());
-    }
-
+      MadieUser user,
+      Map<String, UserMeasuresDto> measuresByUser,
+      Map<String, UserLibrariesDto> librariesByUser) {
     String harpKey = user.getHarpId() == null ? "" : user.getHarpId().toLowerCase();
-    UserMeasuresDto userMeasures = measuresByUser.getOrDefault(harpKey, new UserMeasuresDto());
+    boolean measureFetchFailed = measuresByUser == null;
+    UserMeasuresDto userMeasures =
+        measureFetchFailed
+            ? new UserMeasuresDto()
+            : measuresByUser.getOrDefault(harpKey, new UserMeasuresDto());
+    UserLibrariesDto userLibraries =
+        librariesByUser == null
+            ? new UserLibrariesDto()
+            : librariesByUser.getOrDefault(harpKey, new UserLibrariesDto());
     List<MeasureDTO> ownedMeasures =
         userMeasures.getOwnedMeasures() == null
             ? Collections.emptyList()
@@ -181,20 +197,42 @@ public class UserExportService {
         userMeasures.getSharedMeasures() == null
             ? Collections.emptyList()
             : userMeasures.getSharedMeasures();
+    List<LibraryDTO> ownedLibraries =
+        userLibraries.getOwnedLibraries() == null
+            ? Collections.emptyList()
+            : userLibraries.getOwnedLibraries();
+    List<LibraryDTO> sharedLibraries =
+        userLibraries.getSharedLibraries() == null
+            ? Collections.emptyList()
+            : userLibraries.getSharedLibraries();
 
-    int rowCount = Math.max(1, Math.max(ownedMeasures.size(), sharedMeasures.size()));
+    int rowCount =
+        Math.max(
+            1,
+            Math.max(
+                Math.max(ownedMeasures.size(), sharedMeasures.size()),
+                Math.max(ownedLibraries.size(), sharedLibraries.size())));
     List<UserExportRow> rows = new ArrayList<>(rowCount);
     for (int i = 0; i < rowCount; i++) {
       UserExportRow.UserExportRowBuilder builder = UserExportRow.builder();
       // User metadata appears on the user's first row only.
       if (i == 0) {
         applyUserMetadata(builder, user);
+        if (measureFetchFailed) {
+          builder.measureError(MEASURE_FETCH_ERROR_MESSAGE);
+        }
       }
       if (i < ownedMeasures.size()) {
         applyOwnedMeasure(builder, ownedMeasures.get(i));
       }
       if (i < sharedMeasures.size()) {
         applySharedMeasure(builder, sharedMeasures.get(i));
+      }
+      if (i < ownedLibraries.size()) {
+        applyOwnedLibrary(builder, ownedLibraries.get(i));
+      }
+      if (i < sharedLibraries.size()) {
+        applySharedLibrary(builder, sharedLibraries.get(i));
       }
       rows.add(builder.build());
     }
@@ -235,6 +273,25 @@ public class UserExportService {
         .sharedMeasureUpdated(formatInstant(measure.getLastModifiedAt()));
   }
 
+  private void applyOwnedLibrary(UserExportRow.UserExportRowBuilder builder, LibraryDTO library) {
+    builder
+        .ownedLibraryName(library.getCqlLibraryName())
+        .ownedLibraryVersion(library.getVersion())
+        .ownedLibraryStatus(libraryStatus(library))
+        .ownedLibraryModel(library.getModel())
+        .ownedLibraryUpdated(formatInstant(library.getLastModifiedAt()));
+  }
+
+  private void applySharedLibrary(UserExportRow.UserExportRowBuilder builder, LibraryDTO library) {
+    builder
+        .sharedLibraryName(library.getCqlLibraryName())
+        .sharedLibraryVersion(library.getVersion())
+        .sharedLibraryStatus(libraryStatus(library))
+        .sharedLibraryModel(library.getModel())
+        .sharedLibraryOwner(libraryOwner(library))
+        .sharedLibraryUpdated(formatInstant(library.getLastModifiedAt()));
+  }
+
   private String measureStatus(MeasureDTO measure) {
     if (measure.getMeasureMetaData() == null) {
       return null;
@@ -254,6 +311,17 @@ public class UserExportService {
       return measure.getOwnerDisplayName();
     }
     return measure.getMeasureSet() == null ? null : measure.getMeasureSet().getOwner();
+  }
+
+  private String libraryStatus(LibraryDTO library) {
+    return library.isDraft() ? "Draft" : "Versioned";
+  }
+
+  private String libraryOwner(LibraryDTO library) {
+    if (StringUtils.isNotBlank(library.getOwnerDisplayName())) {
+      return library.getOwnerDisplayName();
+    }
+    return library.getLibrarySet() == null ? null : library.getLibrarySet().getOwner();
   }
 
   private String formatRoles(List<HarpRole> roles) {

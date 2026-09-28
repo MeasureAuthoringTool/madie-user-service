@@ -1,8 +1,22 @@
 package gov.cms.madie.user.services;
 
-import gov.cms.madie.user.config.MeasureServiceConfig;
-import gov.cms.madie.user.dto.MeasureDTO;
-import gov.cms.madie.user.dto.UserMeasuresDto;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import gov.cms.madie.user.config.CqlLibraryServiceConfig;
+import gov.cms.madie.user.dto.LibraryDTO;
+import gov.cms.madie.user.dto.UserLibrariesDto;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,52 +32,39 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.List;
-import java.util.Map;
-
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
-class MeasureServiceClientTest {
+class CqlLibraryServiceClientTest {
 
-  @Mock private MeasureServiceConfig measureServiceConfig;
-  @Mock private RestTemplate measureServiceRestTemplate;
+  @Mock private CqlLibraryServiceConfig cqlLibraryServiceConfig;
+  @Mock private RestTemplate cqlLibraryServiceRestTemplate;
 
   @Captor private ArgumentCaptor<String> urlCaptor;
   @Captor private ArgumentCaptor<HttpEntity<List<String>>> entityCaptor;
 
-  private MeasureServiceClient client;
+  private CqlLibraryServiceClient client;
 
   @BeforeEach
   void setUp() {
-    client = new MeasureServiceClient(measureServiceConfig, measureServiceRestTemplate);
+    client = new CqlLibraryServiceClient(cqlLibraryServiceConfig, cqlLibraryServiceRestTemplate);
   }
 
-  private MeasureDTO measure(String name) {
-    return MeasureDTO.builder().measureName(name).build();
+  private LibraryDTO library(String name) {
+    return new LibraryDTO(name, "1.0.000", null, "QI-Core v4.1.1", null, true, null);
   }
 
-  private UserMeasuresDto userMeasures(String owned, String shared) {
-    return new UserMeasuresDto(List.of(measure(owned)), List.of(measure(shared)));
+  private UserLibrariesDto userLibraries(String owned, String shared) {
+    return new UserLibrariesDto(List.of(library(owned)), List.of(library(shared)));
   }
 
   @Test
-  void getMeasuresForUsersPostsToBulkEndpointForwardsAuthAndReturnsBody() {
-    when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
-    Map<String, UserMeasuresDto> responseBody =
+  void getLibrariesForUsersPutsToBulkEndpointForwardsAuthAndReturnsBody() {
+    when(cqlLibraryServiceConfig.getBaseUrl()).thenReturn("http://cql-library:8082/api");
+    Map<String, UserLibrariesDto> responseBody =
         Map.of(
-            "harp1", userMeasures("A", "B"),
-            "harp2", userMeasures("C", "D"));
+            "harp1", userLibraries("A", "B"),
+            "harp2", userLibraries("C", "D"));
     doReturn(ResponseEntity.ok(responseBody))
-        .when(measureServiceRestTemplate)
+        .when(cqlLibraryServiceRestTemplate)
         .exchange(
             anyString(),
             eq(HttpMethod.PUT),
@@ -71,13 +72,13 @@ class MeasureServiceClientTest {
             any(ParameterizedTypeReference.class));
 
     List<String> harpIds = List.of("harp1", "harp2");
-    Map<String, UserMeasuresDto> result = client.getMeasuresForUsers(harpIds, "Bearer tok");
+    Map<String, UserLibrariesDto> result = client.getLibrariesForUsers(harpIds, "Bearer tok");
 
     assertThat(result, is(responseBody));
-    assertThat(result.get("harp1").getOwnedMeasures().get(0).getMeasureName(), is("A"));
-    assertThat(result.get("harp1").getSharedMeasures().get(0).getMeasureName(), is("B"));
+    assertThat(result.get("harp1").getOwnedLibraries().get(0).getCqlLibraryName(), is("A"));
+    assertThat(result.get("harp1").getSharedLibraries().get(0).getCqlLibraryName(), is("B"));
 
-    verify(measureServiceRestTemplate, times(1))
+    verify(cqlLibraryServiceRestTemplate, times(1))
         .exchange(
             urlCaptor.capture(),
             eq(HttpMethod.PUT),
@@ -85,7 +86,8 @@ class MeasureServiceClientTest {
             any(ParameterizedTypeReference.class));
 
     assertThat(
-        urlCaptor.getValue(), is("http://measure:8080/api/admin/measures/bulk-fetch-for-users"));
+        urlCaptor.getValue(),
+        is("http://cql-library:8082/api/cql-libraries/admin/libraries/bulk-fetch-for-users"));
 
     HttpEntity<List<String>> sentEntity = entityCaptor.getValue();
     assertThat(sentEntity.getBody(), is(harpIds));
@@ -94,19 +96,19 @@ class MeasureServiceClientTest {
   }
 
   @Test
-  void getMeasuresForUsersOmitsAuthHeaderWhenBlank() {
-    when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
+  void getLibrariesForUsersOmitsAuthHeaderWhenBlank() {
+    when(cqlLibraryServiceConfig.getBaseUrl()).thenReturn("http://cql-library:8082/api");
     doReturn(ResponseEntity.ok(Map.of()))
-        .when(measureServiceRestTemplate)
+        .when(cqlLibraryServiceRestTemplate)
         .exchange(
             anyString(),
             eq(HttpMethod.PUT),
             any(HttpEntity.class),
             any(ParameterizedTypeReference.class));
 
-    client.getMeasuresForUsers(List.of("harp1"), "   ");
+    client.getLibrariesForUsers(List.of("harp1"), "   ");
 
-    verify(measureServiceRestTemplate, times(1))
+    verify(cqlLibraryServiceRestTemplate, times(1))
         .exchange(
             anyString(),
             eq(HttpMethod.PUT),
@@ -119,19 +121,19 @@ class MeasureServiceClientTest {
   }
 
   @Test
-  void getMeasuresForUsersSendsNullBodyWhenHarpIdsNull() {
-    when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
+  void getLibrariesForUsersSendsNullBodyWhenHarpIdsNull() {
+    when(cqlLibraryServiceConfig.getBaseUrl()).thenReturn("http://cql-library:8082/api");
     doReturn(ResponseEntity.ok(Map.of()))
-        .when(measureServiceRestTemplate)
+        .when(cqlLibraryServiceRestTemplate)
         .exchange(
             anyString(),
             eq(HttpMethod.PUT),
             any(HttpEntity.class),
             any(ParameterizedTypeReference.class));
 
-    client.getMeasuresForUsers(null, null);
+    client.getLibrariesForUsers(null, null);
 
-    verify(measureServiceRestTemplate, times(1))
+    verify(cqlLibraryServiceRestTemplate, times(1))
         .exchange(
             anyString(),
             eq(HttpMethod.PUT),
@@ -143,21 +145,20 @@ class MeasureServiceClientTest {
   }
 
   @Test
-  void getMeasuresForUsersReturnsEmptyMapWhenBodyNull() {
-    when(measureServiceConfig.getBaseUrl()).thenReturn("http://measure:8080/api");
+  void getLibrariesForUsersReturnsEmptyMapWhenBodyNull() {
+    when(cqlLibraryServiceConfig.getBaseUrl()).thenReturn("http://cql-library:8082/api");
     doReturn(ResponseEntity.ok(null))
-        .when(measureServiceRestTemplate)
+        .when(cqlLibraryServiceRestTemplate)
         .exchange(
             anyString(),
             eq(HttpMethod.PUT),
             any(HttpEntity.class),
             any(ParameterizedTypeReference.class));
 
-    Map<String, UserMeasuresDto> result =
-        client.getMeasuresForUsers(List.of("harp1"), "Bearer tok");
+    Map<String, UserLibrariesDto> result = client.getLibrariesForUsers(List.of("harp1"), "tok");
 
     assertThat(result, is(anEmptyMap()));
-    verify(measureServiceRestTemplate, times(1))
+    verify(cqlLibraryServiceRestTemplate, times(1))
         .exchange(
             anyString(),
             eq(HttpMethod.PUT),
