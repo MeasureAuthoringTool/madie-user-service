@@ -22,8 +22,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Component
 public class CqlLibraryServiceClient {
 
-  private static final String BULK_EXPORT_PATH =
-      "/cql-libraries/admin/bulk-fetch-for-users";
+  private static final String BULK_EXPORT_PATH = "/cql-libraries/admin/bulk-fetch-for-users";
 
   private final CqlLibraryServiceConfig cqlLibraryServiceConfig;
   private final RestTemplate cqlLibraryServiceRestTemplate;

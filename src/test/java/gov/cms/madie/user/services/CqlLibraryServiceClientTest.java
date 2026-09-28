@@ -87,7 +87,7 @@ class CqlLibraryServiceClientTest {
 
     assertThat(
         urlCaptor.getValue(),
-        is("http://cql-library:8082/api/cql-libraries/admin/libraries/bulk-fetch-for-users"));
+        is("http://cql-library:8082/api/cql-libraries/admin/bulk-fetch-for-users"));
 
     HttpEntity<List<String>> sentEntity = entityCaptor.getValue();
     assertThat(sentEntity.getBody(), is(harpIds));
