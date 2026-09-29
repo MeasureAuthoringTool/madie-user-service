@@ -60,3 +60,7 @@ excel-export-service:
 
 measure-service:
   base-url: ${MEASURE_SERVICE_URL:http://localhost:8080/api}
+
+cql-library-service:
+  base-url: ${CQL_LIBRARY_SERVICE_URL:http://localhost:8082/api}
+

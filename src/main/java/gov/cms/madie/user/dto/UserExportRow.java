@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
  * A single row of the Full User Export. Field order/names mirror the excel-export service's
  * UserExportRowDto exactly (33 columns). All fields are optional strings.
  *
- * <p>For this story rows are not populated; see {@code UserExportService#buildRows()}.
+ * <p>Rows are assembled by {@code UserExportService#buildRows()}.
  */
 @Data
 @Builder

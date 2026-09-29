@@ -4,9 +4,11 @@ import gov.cms.madie.models.access.HarpRole;
 import gov.cms.madie.models.access.MadieUser;
 import gov.cms.madie.models.access.UserStatus;
 import gov.cms.madie.user.config.ExcelExportServiceConfig;
+import gov.cms.madie.user.dto.LibraryDTO;
 import gov.cms.madie.user.dto.MeasureDTO;
 import gov.cms.madie.user.dto.UserExportRequest;
 import gov.cms.madie.user.dto.UserExportRow;
+import gov.cms.madie.user.dto.UserLibrariesDto;
 import gov.cms.madie.user.dto.UserMeasuresDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,7 @@ class UserExportServiceTest {
   @Mock private RestTemplate excelExportRestTemplate;
   @Mock private UserService userService;
   @Mock private MeasureServiceClient measureServiceClient;
+  @Mock private CqlLibraryServiceClient cqlLibraryServiceClient;
 
   @Captor private ArgumentCaptor<String> urlCaptor;
   @Captor private ArgumentCaptor<HttpEntity<UserExportRequest>> entityCaptor;
@@ -58,7 +61,11 @@ class UserExportServiceTest {
   void setUp() {
     userExportService =
         new UserExportService(
-            excelExportServiceConfig, excelExportRestTemplate, userService, measureServiceClient);
+            excelExportServiceConfig,
+            excelExportRestTemplate,
+            userService,
+            measureServiceClient,
+            cqlLibraryServiceClient);
   }
 
   private MeasureDTO measure(
@@ -81,6 +88,22 @@ class UserExportServiceTest {
 
   private UserMeasuresDto userMeasures(List<MeasureDTO> owned, List<MeasureDTO> shared) {
     return new UserMeasuresDto(owned, shared);
+  }
+
+  private LibraryDTO library(
+      String name, String version, boolean draft, String model, String ownerDisplay) {
+    return new LibraryDTO(
+        name,
+        version,
+        ownerDisplay,
+        model,
+        Instant.parse("2026-03-05T14:15:00Z"),
+        draft,
+        new LibraryDTO.LibrarySetDto("owner-harp"));
+  }
+
+  private UserLibrariesDto userLibraries(List<LibraryDTO> owned, List<LibraryDTO> shared) {
+    return new UserLibrariesDto(owned, shared);
   }
 
   @Test
@@ -154,6 +177,7 @@ class UserExportServiceTest {
     assertThat(row.getUserStatus(), is(nullValue()));
     assertThat(row.getRoles(), is(nullValue()));
     assertThat(row.getLastLogin(), is(nullValue()));
+    assertThat(row.getApproval(), is(nullValue()));
   }
 
   @Test
@@ -210,6 +234,82 @@ class UserExportServiceTest {
   }
 
   @Test
+  void buildRowsFansOutOwnedAndSharedLibrariesToMaxRows() {
+    MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp1",
+                userLibraries(
+                    List.of(
+                        library("Owned Library A", "1.0.000", true, "QI-Core v4.1.1", null),
+                        library("Owned Library B", "2.0.000", false, "QDM v5.6", null)),
+                    List.of(
+                        library(
+                            "Shared Library X",
+                            "3.0.000",
+                            false,
+                            "QI-Core v4.1.1",
+                            "Owner Person")))));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(2));
+
+    UserExportRow row0 = rows.get(0);
+    assertThat(row0.getUserDisplayName(), is("Jane Doe"));
+    assertThat(row0.getOwnedLibraryName(), is("Owned Library A"));
+    assertThat(row0.getOwnedLibraryVersion(), is("1.0.000"));
+    assertThat(row0.getOwnedLibraryStatus(), is("Draft"));
+    assertThat(row0.getOwnedLibraryModel(), is("QI-Core v4.1.1"));
+    assertThat(row0.getOwnedLibraryUpdated(), is("2026-03-05 14:15:00"));
+    assertThat(row0.getSharedLibraryName(), is("Shared Library X"));
+    assertThat(row0.getSharedLibraryStatus(), is("Versioned"));
+    assertThat(row0.getSharedLibraryOwner(), is("Owner Person"));
+
+    UserExportRow row1 = rows.get(1);
+    assertThat(row1.getUserDisplayName(), is(nullValue()));
+    assertThat(row1.getOwnedLibraryName(), is("Owned Library B"));
+    assertThat(row1.getOwnedLibraryStatus(), is("Versioned"));
+    assertThat(row1.getSharedLibraryName(), is(nullValue()));
+  }
+
+  @Test
+  void buildRowsFansOutAcrossMeasuresAndLibrariesUsingLargestBucket() {
+    MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp1",
+                userMeasures(
+                    List.of(
+                        measure("Owned Measure", "1.0.000", true, "QI-Core v4.1.1", 1234, null)),
+                    List.of())));
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp1",
+                userLibraries(
+                    List.of(
+                        library("Owned Library A", "1.0.000", true, "QI-Core v4.1.1", null),
+                        library("Owned Library B", "2.0.000", false, "QDM v5.6", null),
+                        library("Owned Library C", "3.0.000", false, "QDM v5.6", null)),
+                    List.of())));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(3));
+    assertThat(rows.get(0).getOwnedMeasureName(), is("Owned Measure"));
+    assertThat(rows.get(0).getOwnedLibraryName(), is("Owned Library A"));
+    assertThat(rows.get(1).getOwnedMeasureName(), is(nullValue()));
+    assertThat(rows.get(1).getOwnedLibraryName(), is("Owned Library B"));
+    assertThat(rows.get(2).getOwnedLibraryName(), is("Owned Library C"));
+  }
+
+  @Test
   void buildRowsEmitsRedErrorMarkerWhenMeasureFetchFails() {
     MadieUser user = MadieUser.builder().harpId("harp9").displayName("Broken User").build();
     when(userService.getAllUsers()).thenReturn(List.of(user));
@@ -225,6 +325,31 @@ class UserExportServiceTest {
     assertThat(row.getMeasureError(), is("Unable to retrieve this user"));
     assertThat(row.getOwnedMeasureName(), is(nullValue()));
     assertThat(row.getSharedMeasureName(), is(nullValue()));
+  }
+
+  @Test
+  void buildRowsStillPopulatesLibrariesWhenMeasureFetchFails() {
+    MadieUser user = MadieUser.builder().harpId("harp9").displayName("Broken User").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), any()))
+        .thenThrow(new RestClientException("measure-service down"));
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp9",
+                userLibraries(
+                    List.of(library("Owned Library", "1.0.000", true, "QI-Core v4.1.1", null)),
+                    List.of(
+                        library("Shared Library", "2.0.000", false, "QDM v5.6", "Owner Person")))));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(1));
+    UserExportRow row = rows.get(0);
+    assertThat(row.getMeasureError(), is("Unable to retrieve this user"));
+    assertThat(row.getOwnedLibraryName(), is("Owned Library"));
+    assertThat(row.getSharedLibraryName(), is("Shared Library"));
+    assertThat(row.getSharedLibraryOwner(), is("Owner Person"));
   }
 
   @Test
@@ -303,7 +428,7 @@ class UserExportServiceTest {
   }
 
   @Test
-  void generateUserExportOmitsAuthHeaderWhenBlank() {
+  void generateUserExportOmitsAuthHeaderWhenBlankOrNull() {
     when(userService.getAllUsers()).thenReturn(Collections.emptyList());
     when(excelExportServiceConfig.getBaseUrl()).thenReturn("http://excel-export:3000/api");
     when(excelExportRestTemplate.exchange(
@@ -311,7 +436,10 @@ class UserExportServiceTest {
         .thenReturn(ResponseEntity.ok("bytes".getBytes(StandardCharsets.UTF_8)));
 
     userExportService.generateUserExport(null, null);
+    assertThat(
+        entityCaptor.getValue().getHeaders().getFirst(HttpHeaders.AUTHORIZATION), nullValue());
 
+    userExportService.generateUserExport("   ", null);
     assertThat(
         entityCaptor.getValue().getHeaders().getFirst(HttpHeaders.AUTHORIZATION), nullValue());
   }
@@ -340,5 +468,302 @@ class UserExportServiceTest {
         assertThrows(
             ResponseStatusException.class, () -> userExportService.generateUserExport(AUTH, null));
     assertThat(ex.getStatusCode(), is(HttpStatus.BAD_GATEWAY));
+  }
+
+  @Test
+  void buildRowsStillPopulatesMeasuresWhenLibraryFetchFails() {
+    MadieUser user = MadieUser.builder().harpId("harp5").displayName("Library Broken").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp5",
+                userMeasures(
+                    List.of(
+                        measure("Owned Measure", "1.0.000", true, "QI-Core v4.1.1", 5678, null)),
+                    List.of())));
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), any()))
+        .thenThrow(new RestClientException("library-service down"));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(1));
+    UserExportRow row = rows.get(0);
+    // Measure data should still be populated despite library fetch failure
+    assertThat(row.getOwnedMeasureName(), is("Owned Measure"));
+    assertThat(row.getOwnedMeasureStatus(), is("Draft"));
+    assertThat(row.getOwnedMeasureCmsId(), is("5678"));
+    // No error marker since only library fetch failed, not measure
+    assertThat(row.getMeasureError(), is(nullValue()));
+    // Library fields should be null/empty
+    assertThat(row.getOwnedLibraryName(), is(nullValue()));
+  }
+
+  @Test
+  void buildRowsHandlesUserWithNullHarpId() {
+    MadieUser user = MadieUser.builder().displayName("No HARP ID").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(1));
+    UserExportRow row = rows.get(0);
+    assertThat(row.getUserDisplayName(), is("No HARP ID"));
+    assertThat(row.getHarpId(), is(nullValue()));
+    // Should not fail even with null harpId
+    assertThat(row.getOwnedMeasureName(), is(nullValue()));
+  }
+
+  @Test
+  void buildRowsNormalizesHarpIdToLowercase() {
+    MadieUser user = MadieUser.builder().harpId("HARP1").displayName("Upper Case").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp1",
+                userMeasures(
+                    List.of(measure("Measure", "1.0.000", true, "QI-Core v4.1.1", null, null)),
+                    List.of())));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    // Verify that the user with uppercase HARP ID matched the lowercase key
+    assertThat(rows, hasSize(1));
+    assertThat(rows.get(0).getOwnedMeasureName(), is("Measure"));
+  }
+
+  @Test
+  void buildRowsHandlesLibrariesWithNullLibrarySet() {
+    MadieUser user = MadieUser.builder().harpId("harp6").displayName("Lib Nulls").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+
+    // Library with null librarySet
+    LibraryDTO libNoSet =
+        new LibraryDTO(
+            "Lib No Set",
+            "1.0.000",
+            null,
+            "QI-Core v4.1.1",
+            Instant.parse("2026-03-05T14:15:00Z"),
+            false,
+            null);
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH)))
+        .thenReturn(Map.of("harp6", userLibraries(List.of(libNoSet), List.of())));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(1));
+    UserExportRow row = rows.get(0);
+    assertThat(row.getOwnedLibraryName(), is("Lib No Set"));
+    assertThat(row.getOwnedLibraryStatus(), is("Versioned")); // isDraft=false
+    assertThat(row.getOwnedLibraryVersion(), is("1.0.000"));
+  }
+
+  @Test
+  void buildRowsHandlesLibraryOwnerResolution() {
+    MadieUser user1 = MadieUser.builder().harpId("harp7").displayName("Owner Fallback").build();
+    MadieUser user2 = MadieUser.builder().harpId("harp8").displayName("No Owner").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user1, user2));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+
+    LibraryDTO libBlankOwner =
+        new LibraryDTO(
+            "Lib Blank Owner",
+            "1.0.000",
+            "   ",
+            "QI-Core v4.1.1",
+            Instant.parse("2026-03-05T14:15:00Z"),
+            true,
+            new LibraryDTO.LibrarySetDto("set-owner"));
+
+    LibraryDTO libNoOwner =
+        new LibraryDTO(
+            "Lib No Owner",
+            "1.0.000",
+            null,
+            "QI-Core v4.1.1",
+            Instant.parse("2026-03-05T14:15:00Z"),
+            false,
+            null);
+
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp7", userLibraries(List.of(), List.of(libBlankOwner)),
+                "harp8", userLibraries(List.of(), List.of(libNoOwner))));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(2));
+    assertThat(rows.get(0).getSharedLibraryOwner(), is("set-owner"));
+    assertThat(rows.get(1).getSharedLibraryOwner(), is(nullValue()));
+  }
+
+  @Test
+  void buildRowsHandlesVariousRoleCombinations() {
+    MadieUser emptyRoles =
+        MadieUser.builder()
+            .harpId("harp10")
+            .displayName("Empty Roles")
+            .roles(Collections.emptyList())
+            .build();
+    MadieUser singleRole =
+        MadieUser.builder()
+            .harpId("harp11")
+            .displayName("Single Role")
+            .roles(List.of(HarpRole.builder().role("Admin").build()))
+            .build();
+    MadieUser blankAndValidRoles =
+        MadieUser.builder()
+            .harpId("harp12")
+            .displayName("Blank Roles")
+            .roles(
+                List.of(
+                    HarpRole.builder().role("  ").build(),
+                    HarpRole.builder().role("Real Role").build(),
+                    HarpRole.builder().role("").build()))
+            .build();
+    when(userService.getAllUsers()).thenReturn(List.of(emptyRoles, singleRole, blankAndValidRoles));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(3));
+    assertThat(rows.get(0).getRoles(), is(nullValue()));
+    assertThat(rows.get(1).getRoles(), is("Admin"));
+    assertThat(rows.get(2).getRoles(), is("Real Role"));
+  }
+
+  @Test
+  void buildRowsHandlesNullInstantFields() {
+    MadieUser user =
+        MadieUser.builder()
+            .harpId("harp13")
+            .displayName("No Timestamps")
+            .accessStartAt(null)
+            .lastLoginAt(null)
+            .build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(1));
+    UserExportRow row = rows.get(0);
+    assertThat(row.getApproval(), is(nullValue()));
+    assertThat(row.getLastLogin(), is(nullValue()));
+  }
+
+  @Test
+  void generateUserExportReturnsNullBodyHandling() {
+    when(userService.getAllUsers()).thenReturn(Collections.emptyList());
+    when(excelExportServiceConfig.getBaseUrl()).thenReturn("http://excel-export:3000/api");
+    when(excelExportRestTemplate.exchange(anyString(), eq(HttpMethod.PUT), any(), eq(byte[].class)))
+        .thenReturn(ResponseEntity.ok(null));
+
+    ResponseStatusException ex =
+        assertThrows(
+            ResponseStatusException.class, () -> userExportService.generateUserExport(AUTH, null));
+    assertThat(ex.getStatusCode(), is(HttpStatus.BAD_GATEWAY));
+  }
+
+  @Test
+  void buildRowsWithBothMeasureAndLibraryFetchFailures() {
+    MadieUser user = MadieUser.builder().harpId("harp14").displayName("Both Down").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), any()))
+        .thenThrow(new RestClientException("measure-service down"));
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), any()))
+        .thenThrow(new RestClientException("library-service down"));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows, hasSize(1));
+    UserExportRow row = rows.get(0);
+    assertThat(row.getUserDisplayName(), is("Both Down"));
+    assertThat(row.getMeasureError(), is("Unable to retrieve this user"));
+    assertThat(row.getOwnedMeasureName(), is(nullValue()));
+    assertThat(row.getOwnedLibraryName(), is(nullValue()));
+  }
+
+  @Test
+  void buildRowsHandlesMultipleUsersWithMixedDataAvailability() {
+    MadieUser user1 = MadieUser.builder().harpId("harp15").displayName("User 1").build();
+    MadieUser user2 = MadieUser.builder().harpId("harp16").displayName("User 2").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user1, user2));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp15",
+                userMeasures(
+                    List.of(measure("Measure1", "1.0.000", true, "QI-Core v4.1.1", null, null)),
+                    List.of())));
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp16",
+                userLibraries(
+                    List.of(library("Library1", "2.0.000", false, "QDM v5.6", null)), List.of())));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    // User 1 has measure, User 2 has library
+    assertThat(rows, hasSize(2));
+    assertThat(rows.get(0).getUserDisplayName(), is("User 1"));
+    assertThat(rows.get(0).getOwnedMeasureName(), is("Measure1"));
+    assertThat(rows.get(0).getOwnedLibraryName(), is(nullValue()));
+    assertThat(rows.get(1).getUserDisplayName(), is("User 2"));
+    assertThat(rows.get(1).getOwnedMeasureName(), is(nullValue()));
+    assertThat(rows.get(1).getOwnedLibraryName(), is("Library1"));
+  }
+
+  @Test
+  void buildRowsHandlesLibraryStatusDraftAndVersioned() {
+    MadieUser draftUser = MadieUser.builder().harpId("harp17").displayName("Draft Lib").build();
+    MadieUser versionedUser =
+        MadieUser.builder().harpId("harp18").displayName("Versioned Lib").build();
+    when(userService.getAllUsers()).thenReturn(List.of(draftUser, versionedUser));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+
+    LibraryDTO draftLib = library("Draft Library", "1.0.000", true, "QI-Core v4.1.1", null);
+    LibraryDTO versionedLib = library("Versioned Library", "2.0.000", false, "QDM v5.6", null);
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp17", userLibraries(List.of(draftLib), List.of()),
+                "harp18", userLibraries(List.of(), List.of(versionedLib))));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    assertThat(rows.get(0).getOwnedLibraryStatus(), is("Draft"));
+    assertThat(rows.get(1).getSharedLibraryStatus(), is("Versioned"));
+  }
+
+  @Test
+  void buildRowsHandlesMeasureOwnerWithDisplayName() {
+    MadieUser user = MadieUser.builder().harpId("harp19").displayName("Owner Display").build();
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+
+    MeasureDTO measureWithOwnerDisplay =
+        MeasureDTO.builder()
+            .measureName("With Owner Display")
+            .version("1.0.000")
+            .model("QI-Core v4.1.1")
+            .lastModifiedAt(Instant.parse("2026-03-01T12:00:00Z"))
+            .ownerDisplayName("John Doe") // Has display name
+            .measureMetaData(MeasureDTO.MeasureMetaDataDTO.builder().draft(false).build())
+            .measureSet(MeasureDTO.MeasureSetDTO.builder().owner("j.doe").build())
+            .build();
+
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH)))
+        .thenReturn(Map.of("harp19", userMeasures(List.of(), List.of(measureWithOwnerDisplay))));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, null);
+
+    // Should use ownerDisplayName over measureSet owner
+    assertThat(rows.get(0).getSharedMeasureOwner(), is("John Doe"));
   }
 }
