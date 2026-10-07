@@ -68,6 +68,12 @@ public class UserController {
             .build());
   }
 
+  @PostMapping("/logout/{harpId}")
+  public ResponseEntity<String> logout(@PathVariable String harpId, Principal principal) {
+    log.info("User [{}] - Logging out user with HARP ID: {}", principal.getName(), harpId);
+    return ResponseEntity.status(HttpStatus.OK).body("User logged out successfully");
+  }
+
   @GetMapping("/activity")
   public ResponseEntity<Object> getUserActivityReport(Principal principal) {
     log.info("User [{}] - Generating user activity report", principal.getName());
