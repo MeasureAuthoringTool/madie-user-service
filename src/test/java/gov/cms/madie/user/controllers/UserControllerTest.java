@@ -177,6 +177,16 @@ class UserControllerTest {
   }
 
   @Test
+  void logoutUserReturnsSuccessMessage() {
+    when(principal.getName()).thenReturn("123");
+
+    ResponseEntity<String> response = userController.logout("123", principal);
+
+    assertThat(response.getStatusCode(), is(HttpStatus.OK));
+    assertThat(response.getBody(), is("User logged out successfully"));
+  }
+
+  @Test
   void getUserActivityReportReturnsReport() {
     // when
     ResponseEntity<Object> response = userController.getUserActivityReport(principal);
