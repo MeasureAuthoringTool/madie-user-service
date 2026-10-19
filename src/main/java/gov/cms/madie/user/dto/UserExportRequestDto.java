@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * Optional request body for the Full User Export endpoint.
  *
- * <p>When {@code userIds} is null/empty the export covers all users; otherwise it is limited to the
+ * <p>When {@code harpIds} is null/empty the export covers all users; otherwise it is limited to the
  * selected users. The export option flags decide which non-metadata column groups are included in
  * the generated workbook.
  */
