@@ -1,6 +1,5 @@
 package gov.cms.madie.user.dto;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,9 +19,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserExportRequestDto {
-  @JsonAlias("harpIds")
-  private List<String> userIds;
-
+  private List<String> harpIds;
   private Boolean ownedMeasures;
   private Boolean sharedMeasures;
   private Boolean ownedLibraries;
