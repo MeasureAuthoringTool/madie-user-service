@@ -61,13 +61,13 @@ public class AdminController {
       @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
       @RequestBody(required = false) UserExportRequestDto exportRequest,
       Principal principal) {
-    List<String> harpIds = exportRequest == null ? null : exportRequest.getHarpIds();
+    List<String> userIds = exportRequest == null ? null : exportRequest.getUserIds();
     log.info(
         "User [{}] - Generating User Export ({})",
         principal != null ? principal.getName() : "unknown",
-        CollectionUtils.isEmpty(harpIds) ? "all users" : harpIds.size() + " selected user(s)");
+        CollectionUtils.isEmpty(userIds) ? "all users" : userIds.size() + " selected user(s)");
 
-    byte[] workbook = userExportService.generateUserExport(authorization, harpIds);
+    byte[] workbook = userExportService.generateUserExport(authorization, exportRequest);
 
     String filename = "UserExport_" + LocalDateTime.now().format(FILENAME_TIMESTAMP) + ".xlsx";
 

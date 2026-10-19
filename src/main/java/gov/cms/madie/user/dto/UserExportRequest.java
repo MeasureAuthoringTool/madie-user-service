@@ -17,4 +17,8 @@ import java.util.List;
 @AllArgsConstructor
 public class UserExportRequest {
   private List<UserExportRow> rows;
+  private Boolean ownedMeasures;
+  private Boolean sharedMeasures;
+  private Boolean ownedLibraries;
+  private Boolean sharedLibraries;
 }
