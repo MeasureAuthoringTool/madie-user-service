@@ -120,7 +120,7 @@ public class AdminControllerTest {
     when(userExportService.generateUserExport(any(), any())).thenReturn(workbook);
     UserExportRequestDto exportRequest =
         UserExportRequestDto.builder()
-            .harpIds(List.of("harp1", "harp2"))
+            .userIds(List.of("harp1", "harp2"))
             .ownedMeasures(true)
             .sharedLibraries(true)
             .build();
