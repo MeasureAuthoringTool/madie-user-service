@@ -67,7 +67,7 @@ public class AdminController {
         principal != null ? principal.getName() : "unknown",
         CollectionUtils.isEmpty(harpIds) ? "all users" : harpIds.size() + " selected user(s)");
 
-    byte[] workbook = userExportService.generateUserExport(authorization, harpIds);
+    byte[] workbook = userExportService.generateUserExport(authorization, exportRequest);
 
     String filename = "UserExport_" + LocalDateTime.now().format(FILENAME_TIMESTAMP) + ".xlsx";
 

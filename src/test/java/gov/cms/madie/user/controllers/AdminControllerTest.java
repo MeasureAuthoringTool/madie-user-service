@@ -119,12 +119,16 @@ public class AdminControllerTest {
     byte[] workbook = "fake-xlsx-bytes".getBytes(StandardCharsets.UTF_8);
     when(userExportService.generateUserExport(any(), any())).thenReturn(workbook);
     UserExportRequestDto exportRequest =
-        UserExportRequestDto.builder().harpIds(List.of("harp1", "harp2")).build();
+        UserExportRequestDto.builder()
+            .harpIds(List.of("harp1", "harp2"))
+            .ownedMeasures(true)
+            .sharedLibraries(true)
+            .build();
 
     ResponseEntity<byte[]> response =
         adminController.exportUsers("Bearer test-token", exportRequest, principal);
 
     assertThat(response.getStatusCode(), is(HttpStatus.OK));
-    verify(userExportService).generateUserExport("Bearer test-token", List.of("harp1", "harp2"));
+    verify(userExportService).generateUserExport("Bearer test-token", exportRequest);
   }
 }

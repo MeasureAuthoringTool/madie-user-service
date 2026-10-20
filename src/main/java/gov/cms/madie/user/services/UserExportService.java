@@ -6,6 +6,7 @@ import gov.cms.madie.user.config.ExcelExportServiceConfig;
 import gov.cms.madie.user.dto.LibraryDTO;
 import gov.cms.madie.user.dto.MeasureDTO;
 import gov.cms.madie.user.dto.UserExportRequest;
+import gov.cms.madie.user.dto.UserExportRequestDto;
 import gov.cms.madie.user.dto.UserExportRow;
 import gov.cms.madie.user.dto.UserLibrariesDto;
 import gov.cms.madie.user.dto.UserMeasuresDto;
@@ -78,12 +79,21 @@ public class UserExportService {
    *
    * @param authorizationHeader the caller's {@code Authorization} header to forward downstream (may
    *     be {@code null})
-   * @param harpIds the users to export; when null/empty, all users are exported
+   * @param exportRequest the users/groups to export; when null or missing user ids, all users and
+   *     all groups are exported
    * @return the generated .xlsx as bytes
    */
-  public byte[] generateUserExport(String authorizationHeader, List<String> harpIds) {
-    List<UserExportRow> rows = buildRows(authorizationHeader, harpIds);
-    UserExportRequest requestBody = UserExportRequest.builder().rows(rows).build();
+  public byte[] generateUserExport(String authorizationHeader, UserExportRequestDto exportRequest) {
+    UserExportSelection exportSelection = normalizeExportSelection(exportRequest);
+    List<UserExportRow> rows = buildRows(authorizationHeader, exportSelection);
+    UserExportRequest requestBody =
+        UserExportRequest.builder()
+            .rows(rows)
+            .ownedMeasures(exportSelection.ownedMeasures())
+            .sharedMeasures(exportSelection.sharedMeasures())
+            .ownedLibraries(exportSelection.ownedLibraries())
+            .sharedLibraries(exportSelection.sharedLibraries())
+            .build();
 
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
@@ -123,54 +133,64 @@ public class UserExportService {
    * Aggregation seam for the export rows.
    *
    * <p>Produces one or more rows per MADiE user. User Metadata (columns 1-9) is written on the
-   * user's first row only. A user's owned and shared measures (columns 10-22) are fetched from the
-   * measure-service in a single bulk call and fanned out so that row {@code i} carries the {@code
-   * i}-th owned/shared measure and owned/shared library; a user therefore contributes {@code
-   * max(ownedMeasureCount, sharedMeasureCount, ownedLibraryCount, sharedLibraryCount, 1)} rows. If
-   * the bulk measure lookup fails, the first row for each user carries an error marker (rendered in
-   * red in the Owned Measure Name column), while library data is still populated when available.
+   * user's first row only. Included measure/library groups are bulk-fetched once and then fanned
+   * out so that row {@code i} carries the {@code i}-th selected item from each included group; a
+   * user therefore contributes {@code max(includedGroupCounts..., 1)} rows. If the bulk measure
+   * lookup fails while a measure group is requested, the first row for each user carries an error
+   * marker (rendered in red in the measure section), while library data is still populated when
+   * available.
    *
-   * @param authorizationHeader the admin caller's Authorization header, forwarded to
-   *     measure-service
-   * @param harpIds the users to export; when null/empty, all users are exported
+   * @param authorizationHeader the admin caller's Authorization header, forwarded downstream
+   * @param exportRequest the users/groups to export; when null or missing user ids, all users and
+   *     all groups are exported
    * @return the flattened export rows across all users
    */
-  public List<UserExportRow> buildRows(String authorizationHeader, List<String> harpIds) {
+  public List<UserExportRow> buildRows(
+      String authorizationHeader, UserExportRequestDto exportRequest) {
+    return buildRows(authorizationHeader, normalizeExportSelection(exportRequest));
+  }
+
+  private List<UserExportRow> buildRows(
+      String authorizationHeader, UserExportSelection exportSelection) {
     List<MadieUser> users =
-        CollectionUtils.isEmpty(harpIds)
+        exportSelection.exportAllUsers()
             ? userService.getAllUsers()
-            : userService.getUsersByHarpIds(harpIds);
+            : userService.getUsersByHarpIds(exportSelection.userIds());
     if (CollectionUtils.isEmpty(users)) {
       return Collections.emptyList();
     }
 
-    // Fetch every user's owned & shared measures in a single bulk call to measure-service,
     List<String> userHarpIds =
         users.stream()
             .map(MadieUser::getHarpId)
             .filter(StringUtils::isNotBlank)
             .map(String::toLowerCase)
             .collect(Collectors.toList());
-    Map<String, UserMeasuresDto> measuresByUser;
-    try {
-      measuresByUser = measureServiceClient.getMeasuresForUsers(userHarpIds, authorizationHeader);
-    } catch (Exception ex) {
-      log.error("Unable to bulk-retrieve measures for {} user(s)", users.size(), ex);
-      measuresByUser = null;
+
+    Map<String, UserMeasuresDto> measuresByUser = Collections.emptyMap();
+    if (exportSelection.shouldFetchMeasures()) {
+      try {
+        measuresByUser = measureServiceClient.getMeasuresForUsers(userHarpIds, authorizationHeader);
+      } catch (Exception ex) {
+        log.error("Unable to bulk-retrieve measures for {} user(s)", users.size(), ex);
+        measuresByUser = null;
+      }
     }
 
-    Map<String, UserLibrariesDto> librariesByUser;
-    try {
-      librariesByUser =
-          cqlLibraryServiceClient.getLibrariesForUsers(userHarpIds, authorizationHeader);
-    } catch (Exception ex) {
-      log.error("Unable to bulk-retrieve libraries for {} user(s)", users.size(), ex);
-      librariesByUser = null;
+    Map<String, UserLibrariesDto> librariesByUser = Collections.emptyMap();
+    if (exportSelection.shouldFetchLibraries()) {
+      try {
+        librariesByUser =
+            cqlLibraryServiceClient.getLibrariesForUsers(userHarpIds, authorizationHeader);
+      } catch (Exception ex) {
+        log.error("Unable to bulk-retrieve libraries for {} user(s)", users.size(), ex);
+        librariesByUser = null;
+      }
     }
 
     List<UserExportRow> rows = new ArrayList<>();
     for (MadieUser user : users) {
-      rows.addAll(buildRowsForUser(user, measuresByUser, librariesByUser));
+      rows.addAll(buildRowsForUser(user, measuresByUser, librariesByUser, exportSelection));
     }
     return rows;
   }
@@ -178,9 +198,10 @@ public class UserExportService {
   private List<UserExportRow> buildRowsForUser(
       MadieUser user,
       Map<String, UserMeasuresDto> measuresByUser,
-      Map<String, UserLibrariesDto> librariesByUser) {
+      Map<String, UserLibrariesDto> librariesByUser,
+      UserExportSelection exportSelection) {
     String harpKey = user.getHarpId() == null ? "" : user.getHarpId().toLowerCase();
-    boolean measureFetchFailed = measuresByUser == null;
+    boolean measureFetchFailed = exportSelection.shouldFetchMeasures() && measuresByUser == null;
     UserMeasuresDto userMeasures =
         measureFetchFailed
             ? new UserMeasuresDto()
@@ -189,54 +210,85 @@ public class UserExportService {
         librariesByUser == null
             ? new UserLibrariesDto()
             : librariesByUser.getOrDefault(harpKey, new UserLibrariesDto());
-    List<MeasureDTO> ownedMeasures =
-        userMeasures.getOwnedMeasures() == null
-            ? Collections.emptyList()
-            : userMeasures.getOwnedMeasures();
-    List<MeasureDTO> sharedMeasures =
-        userMeasures.getSharedMeasures() == null
-            ? Collections.emptyList()
-            : userMeasures.getSharedMeasures();
-    List<LibraryDTO> ownedLibraries =
-        userLibraries.getOwnedLibraries() == null
-            ? Collections.emptyList()
-            : userLibraries.getOwnedLibraries();
-    List<LibraryDTO> sharedLibraries =
-        userLibraries.getSharedLibraries() == null
-            ? Collections.emptyList()
-            : userLibraries.getSharedLibraries();
 
-    int rowCount =
-        Math.max(
-            1,
-            Math.max(
-                Math.max(ownedMeasures.size(), sharedMeasures.size()),
-                Math.max(ownedLibraries.size(), sharedLibraries.size())));
+    List<MeasureDTO> ownedMeasures =
+        exportSelection.ownedMeasures() && userMeasures.getOwnedMeasures() != null
+            ? userMeasures.getOwnedMeasures()
+            : Collections.emptyList();
+    List<MeasureDTO> sharedMeasures =
+        exportSelection.sharedMeasures() && userMeasures.getSharedMeasures() != null
+            ? userMeasures.getSharedMeasures()
+            : Collections.emptyList();
+    List<LibraryDTO> ownedLibraries =
+        exportSelection.ownedLibraries() && userLibraries.getOwnedLibraries() != null
+            ? userLibraries.getOwnedLibraries()
+            : Collections.emptyList();
+    List<LibraryDTO> sharedLibraries =
+        exportSelection.sharedLibraries() && userLibraries.getSharedLibraries() != null
+            ? userLibraries.getSharedLibraries()
+            : Collections.emptyList();
+
+    int rowCount = 1;
+    if (exportSelection.ownedMeasures()) {
+      rowCount = Math.max(rowCount, ownedMeasures.size());
+    }
+    if (exportSelection.sharedMeasures()) {
+      rowCount = Math.max(rowCount, sharedMeasures.size());
+    }
+    if (exportSelection.ownedLibraries()) {
+      rowCount = Math.max(rowCount, ownedLibraries.size());
+    }
+    if (exportSelection.sharedLibraries()) {
+      rowCount = Math.max(rowCount, sharedLibraries.size());
+    }
+
     List<UserExportRow> rows = new ArrayList<>(rowCount);
     for (int i = 0; i < rowCount; i++) {
       UserExportRow.UserExportRowBuilder builder = UserExportRow.builder();
-      // User metadata appears on the user's first row only.
       if (i == 0) {
         applyUserMetadata(builder, user);
         if (measureFetchFailed) {
           builder.measureError(MEASURE_FETCH_ERROR_MESSAGE);
         }
       }
-      if (i < ownedMeasures.size()) {
+      if (exportSelection.ownedMeasures() && i < ownedMeasures.size()) {
         applyOwnedMeasure(builder, ownedMeasures.get(i));
       }
-      if (i < sharedMeasures.size()) {
+      if (exportSelection.sharedMeasures() && i < sharedMeasures.size()) {
         applySharedMeasure(builder, sharedMeasures.get(i));
       }
-      if (i < ownedLibraries.size()) {
+      if (exportSelection.ownedLibraries() && i < ownedLibraries.size()) {
         applyOwnedLibrary(builder, ownedLibraries.get(i));
       }
-      if (i < sharedLibraries.size()) {
+      if (exportSelection.sharedLibraries() && i < sharedLibraries.size()) {
         applySharedLibrary(builder, sharedLibraries.get(i));
       }
       rows.add(builder.build());
     }
     return rows;
+  }
+
+  private UserExportSelection normalizeExportSelection(UserExportRequestDto exportRequest) {
+    if (exportRequest == null || CollectionUtils.isEmpty(exportRequest.getHarpIds())) {
+      return UserExportSelection.fullExport();
+    }
+
+    List<String> userIds =
+        exportRequest.getHarpIds().stream()
+            .filter(StringUtils::isNotBlank)
+            .map(String::trim)
+            .toList();
+    if (CollectionUtils.isEmpty(userIds)) {
+      return UserExportSelection.fullExport();
+    }
+
+    return new UserExportSelection(
+        userIds,
+        false,
+        Boolean.TRUE.equals(exportRequest.getOwnedMeasures()),
+        Boolean.TRUE.equals(exportRequest.getSharedMeasures()),
+        Boolean.TRUE.equals(exportRequest.getOwnedLibraries()),
+        Boolean.TRUE.equals(exportRequest.getSharedLibraries()));
   }
 
   private void applyUserMetadata(UserExportRow.UserExportRowBuilder builder, MadieUser user) {
@@ -336,5 +388,26 @@ public class UserExportService {
 
   private String formatInstant(Instant instant) {
     return instant == null ? null : DATE_TIME_FORMATTER.format(instant);
+  }
+
+  private record UserExportSelection(
+      List<String> userIds,
+      boolean exportAllUsers,
+      boolean ownedMeasures,
+      boolean sharedMeasures,
+      boolean ownedLibraries,
+      boolean sharedLibraries) {
+
+    private static UserExportSelection fullExport() {
+      return new UserExportSelection(List.of(), true, true, true, true, true);
+    }
+
+    private boolean shouldFetchMeasures() {
+      return ownedMeasures || sharedMeasures;
+    }
+
+    private boolean shouldFetchLibraries() {
+      return ownedLibraries || sharedLibraries;
+    }
   }
 }

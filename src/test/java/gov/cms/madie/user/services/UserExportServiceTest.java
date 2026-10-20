@@ -7,6 +7,7 @@ import gov.cms.madie.user.config.ExcelExportServiceConfig;
 import gov.cms.madie.user.dto.LibraryDTO;
 import gov.cms.madie.user.dto.MeasureDTO;
 import gov.cms.madie.user.dto.UserExportRequest;
+import gov.cms.madie.user.dto.UserExportRequestDto;
 import gov.cms.madie.user.dto.UserExportRow;
 import gov.cms.madie.user.dto.UserLibrariesDto;
 import gov.cms.madie.user.dto.UserMeasuresDto;
@@ -106,6 +107,21 @@ class UserExportServiceTest {
     return new UserLibrariesDto(owned, shared);
   }
 
+  private UserExportRequestDto exportRequest(
+      List<String> userIds,
+      Boolean ownedMeasures,
+      Boolean sharedMeasures,
+      Boolean ownedLibraries,
+      Boolean sharedLibraries) {
+    return UserExportRequestDto.builder()
+        .harpIds(userIds)
+        .ownedMeasures(ownedMeasures)
+        .sharedMeasures(sharedMeasures)
+        .ownedLibraries(ownedLibraries)
+        .sharedLibraries(sharedLibraries)
+        .build();
+  }
+
   @Test
   void buildRowsReturnsEmptyWhenNoUsers() {
     when(userService.getAllUsers()).thenReturn(Collections.emptyList());
@@ -113,18 +129,76 @@ class UserExportServiceTest {
   }
 
   @Test
-  void buildRowsUsesSelectedUsersWhenHarpIdsProvided() {
+  void buildRowsUsesSelectedUsersWhenUserIdsProvided() {
     MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
-    List<String> harpIds = List.of("harp1");
-    when(userService.getUsersByHarpIds(harpIds)).thenReturn(List.of(user));
+    UserExportRequestDto exportRequest = exportRequest(List.of("harp1"), true, true, true, true);
+    when(userService.getUsersByHarpIds(List.of("harp1"))).thenReturn(List.of(user));
     when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
 
-    List<UserExportRow> rows = userExportService.buildRows(AUTH, harpIds);
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, exportRequest);
 
     assertThat(rows, hasSize(1));
     assertThat(rows.get(0).getUserDisplayName(), is("Jane Doe"));
     // Selected-users path must not fall back to fetching all users
     verify(userService, never()).getAllUsers();
+  }
+
+  @Test
+  void buildRowsFallsBackToFullExportWhenAllHarpIdsBlank() {
+    MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
+    UserExportRequestDto exportRequest =
+        exportRequest(List.of("   ", "", "\t"), false, false, false, false);
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, exportRequest);
+
+    assertThat(rows, hasSize(1));
+    assertThat(rows.get(0).getUserDisplayName(), is("Jane Doe"));
+    // Full-export fallback must fetch all users, not the (empty) selected-users list.
+    verify(userService).getAllUsers();
+    verify(userService, never()).getUsersByHarpIds(anyList());
+  }
+
+  @Test
+  void buildRowsSkipsLibraryFetchWhenOnlyMeasureOptionsSelected() {
+    MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
+    UserExportRequestDto exportRequest = exportRequest(List.of("harp1"), true, false, false, false);
+    when(userService.getUsersByHarpIds(List.of("harp1"))).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH)))
+        .thenReturn(
+            Map.of(
+                "harp1",
+                userMeasures(
+                    List.of(measure("Owned A", "1.0.000", true, "QI-Core v4.1.1", 1234, null)),
+                    List.of(measure("Shared X", "1.0.000", false, "QDM v5.6", 999, null)))));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, exportRequest);
+
+    assertThat(rows, hasSize(1));
+    assertThat(rows.get(0).getOwnedMeasureName(), is("Owned A"));
+    assertThat(rows.get(0).getSharedMeasureName(), is(nullValue()));
+    assertThat(rows.get(0).getOwnedLibraryName(), is(nullValue()));
+    verify(cqlLibraryServiceClient, never()).getLibrariesForUsers(anyList(), any());
+  }
+
+  @Test
+  void buildRowsSkipsMeasureAndLibraryFetchesWhenOnlyMetadataIsRequested() {
+    MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
+    UserExportRequestDto exportRequest =
+        exportRequest(List.of("harp1"), false, false, false, false);
+    when(userService.getUsersByHarpIds(List.of("harp1"))).thenReturn(List.of(user));
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, exportRequest);
+
+    assertThat(rows, hasSize(1));
+    assertThat(rows.get(0).getUserDisplayName(), is("Jane Doe"));
+    assertThat(rows.get(0).getOwnedMeasureName(), is(nullValue()));
+    assertThat(rows.get(0).getOwnedLibraryName(), is(nullValue()));
+    verify(measureServiceClient, never()).getMeasuresForUsers(anyList(), any());
+    verify(cqlLibraryServiceClient, never()).getLibrariesForUsers(anyList(), any());
   }
 
   @Test
@@ -419,12 +493,38 @@ class UserExportServiceTest {
     HttpEntity<UserExportRequest> sentEntity = entityCaptor.getValue();
     assertThat(sentEntity.getBody(), notNullValue());
     assertThat(sentEntity.getBody().getRows(), is(empty()));
+    assertThat(sentEntity.getBody().getOwnedMeasures(), is(true));
+    assertThat(sentEntity.getBody().getSharedMeasures(), is(true));
+    assertThat(sentEntity.getBody().getOwnedLibraries(), is(true));
+    assertThat(sentEntity.getBody().getSharedLibraries(), is(true));
 
     HttpHeaders headers = sentEntity.getHeaders();
     assertThat(headers.getContentType(), is(MediaType.APPLICATION_JSON));
     assertThat(
         headers.getAccept(), hasItem(MediaType.parseMediaType(UserExportService.XLSX_MEDIA_TYPE)));
     assertThat(headers.getFirst(HttpHeaders.AUTHORIZATION), is(AUTH));
+  }
+
+  @Test
+  void generateUserExportPassesSelectedOptionsToExcelExport() {
+    when(userService.getUsersByHarpIds(List.of("harp1")))
+        .thenReturn(List.of(MadieUser.builder().harpId("harp1").displayName("Jane Doe").build()));
+    when(excelExportServiceConfig.getBaseUrl()).thenReturn("http://excel-export:3000/api");
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+    when(excelExportRestTemplate.exchange(
+            anyString(), eq(HttpMethod.PUT), entityCaptor.capture(), eq(byte[].class)))
+        .thenReturn(ResponseEntity.ok("bytes".getBytes(StandardCharsets.UTF_8)));
+
+    userExportService.generateUserExport(
+        AUTH, exportRequest(List.of("harp1"), true, false, false, false));
+
+    HttpEntity<UserExportRequest> sentEntity = entityCaptor.getValue();
+    UserExportRequest requestBody = sentEntity.getBody();
+    assertThat(requestBody, notNullValue());
+    assertThat(requestBody.getOwnedMeasures(), is(true));
+    assertThat(requestBody.getSharedMeasures(), is(false));
+    assertThat(requestBody.getOwnedLibraries(), is(false));
+    assertThat(requestBody.getSharedLibraries(), is(false));
   }
 
   @Test
