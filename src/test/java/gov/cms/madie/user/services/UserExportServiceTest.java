@@ -145,6 +145,24 @@ class UserExportServiceTest {
   }
 
   @Test
+  void buildRowsFallsBackToFullExportWhenAllHarpIdsBlank() {
+    MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
+    UserExportRequestDto exportRequest =
+        exportRequest(List.of("   ", "", "\t"), false, false, false, false);
+    when(userService.getAllUsers()).thenReturn(List.of(user));
+    when(measureServiceClient.getMeasuresForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+    when(cqlLibraryServiceClient.getLibrariesForUsers(anyList(), eq(AUTH))).thenReturn(Map.of());
+
+    List<UserExportRow> rows = userExportService.buildRows(AUTH, exportRequest);
+
+    assertThat(rows, hasSize(1));
+    assertThat(rows.get(0).getUserDisplayName(), is("Jane Doe"));
+    // Full-export fallback must fetch all users, not the (empty) selected-users list.
+    verify(userService).getAllUsers();
+    verify(userService, never()).getUsersByHarpIds(anyList());
+  }
+
+  @Test
   void buildRowsSkipsLibraryFetchWhenOnlyMeasureOptionsSelected() {
     MadieUser user = MadieUser.builder().harpId("harp1").displayName("Jane Doe").build();
     UserExportRequestDto exportRequest = exportRequest(List.of("harp1"), true, false, false, false);
