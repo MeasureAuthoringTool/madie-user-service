@@ -114,7 +114,7 @@ class UserExportServiceTest {
       Boolean ownedLibraries,
       Boolean sharedLibraries) {
     return UserExportRequestDto.builder()
-        .harpIds(userIds)
+        .userIds(userIds)
         .ownedMeasures(ownedMeasures)
         .sharedMeasures(sharedMeasures)
         .ownedLibraries(ownedLibraries)
