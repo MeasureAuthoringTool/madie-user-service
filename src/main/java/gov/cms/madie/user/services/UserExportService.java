@@ -269,12 +269,12 @@ public class UserExportService {
   }
 
   private UserExportSelection normalizeExportSelection(UserExportRequestDto exportRequest) {
-    if (exportRequest == null || CollectionUtils.isEmpty(exportRequest.getHarpIds())) {
+    if (exportRequest == null || CollectionUtils.isEmpty(exportRequest.getUserIds())) {
       return UserExportSelection.fullExport();
     }
 
     List<String> userIds =
-        exportRequest.getHarpIds().stream()
+        exportRequest.getUserIds().stream()
             .filter(StringUtils::isNotBlank)
             .map(String::trim)
             .toList();
