@@ -43,6 +43,13 @@
         <artifactId>commons-lang3</artifactId>
         <version>3.18.0</version>
       </dependency>
+      <!-- Override transitive Jackson 3 version used by spring boot to resolve critical sec vuln-->
+      <dependency>
+        <groupId>tools.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>3.1.8</version>
+      </dependency>
+ 
     </dependencies>
   </dependencyManagement>
   <dependencies>
