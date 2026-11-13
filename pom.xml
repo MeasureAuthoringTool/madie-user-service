@@ -116,6 +116,13 @@
       <groupId>com.okta.spring</groupId>
       <artifactId>okta-spring-boot-starter</artifactId>
       <version>3.1.0</version>
+      <!-- Exclude the transitive Jackson dependency from Okta. The explicitly managed Jackson version is used to address the critical security vulnerability. -->
+      <exclusions>
+        <exclusion>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </exclusion>
+    </exclusions>
     </dependency>
 
     <dependency>
